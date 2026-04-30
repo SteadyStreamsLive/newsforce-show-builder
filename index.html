@@ -506,7 +506,12 @@ function getOrderedAvail(day){
   });
 }
 
-function describeSubmissionDay(anchor,day){
+  function toET(t,tz){const off=TZ_OFF[tz]||0,[h,m]=t.split(':').map(Number);let eh=h+off;if(eh<0)eh+=24;if(eh>=24)eh-=24;return `${String(eh).padStart(2,'0')}:${String(m).padStart(2,'0')}`;}
+  function toMins(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
+  function fmt(m){const h=Math.floor(m/60),mi=m%60,ap=h>=12?'PM':'AM',h12=h>12?h-12:(h===0?12:h);return `${h12}:${String(mi).padStart(2,'0')} ${ap}`;}
+  function fmtPT(m){return fmt(m-180);}
+
+  function describeSubmissionDay(anchor,day){
   const blocks=anchor.days[day];
   if(!blocks||!blocks.length||blocks[0].type==='off') return {text:'Day off',off:true};
   const parts=blocks.map(b=>{
