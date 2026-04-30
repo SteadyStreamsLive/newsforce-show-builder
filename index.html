@@ -497,13 +497,71 @@ function getDayRead(anchorName,day){
 
 function getOrderedAvail(day){
   const avail=submissions.filter(a=>getWindows(a,day));
-  if(!dayOrders[day]) return avail;
-  const order=dayOrders[day];
-  return [...avail].sort((a,b)=>{
-    const ai=order.indexOf(a.name),bi=order.indexOf(b.name);
-    if(ai===-1&&bi===-1)return 0; if(ai===-1)return 1; if(bi===-1)return -1;
-    return ai-bi;
-  });
+  if(!avail.length) return avail;
+
+  // If producer has manually set an order, respect it
+  if(dayOrders[day]&&dayOrders[day].length){
+    const order=dayOrders[day];
+    return [...avail].sort((a,b)=>{
+      const ai=order.indexOf(a.name),bi=order.indexOf(b.name);
+      if(ai===-1&&bi===-1)return 0; if(ai===-1)return 1; if(bi===-1)return -1;
+      return ai-bi;
+    });
+  }
+
+  // Auto-optimize: try all permutations and pick the one that fits the most anchors
+  // ending at the earliest time. Uses greedy simulation.
+  function simulateDay(orderedAnchors){
+    let cur=12*60, fitted=0, endTime=12*60;
+    for(let i=0;i<orderedAnchors.length;i++){
+      const anchor=orderedAnchors[i];
+      const wins=getWindows(anchor,day);
+      const isHalf=getDayRead(anchor.name,day)==='half';
+      const READ=isHalf?30:60,PREP=30,TOT=PREP+READ,BRK=i<orderedAnchors.length-1?30:0;
+      let placed=false;
+      for(const w of wins){
+        const ss=Math.max(cur,w.start);
+        if(ss+TOT<=w.end&&ss+TOT<=19*60){
+          cur=ss+TOT+BRK; endTime=ss+TOT; fitted++; placed=true; break;
+        }
+      }
+      if(!placed) cur=Math.max(cur, ...wins.map(w=>w.end));
+    }
+    return {fitted, endTime};
+  }
+
+  // For up to 6 anchors try all permutations; for more use greedy earliest-deadline-first
+  function permutations(arr){
+    if(arr.length<=1) return [arr];
+    const result=[];
+    arr.forEach((item,i)=>{
+      const rest=arr.filter((_,j)=>j!==i);
+      permutations(rest).forEach(p=>result.push([item,...p]));
+    });
+    return result;
+  }
+
+  let bestOrder=avail, bestFitted=0, bestEnd=19*60;
+
+  if(avail.length<=5){
+    // Try all permutations
+    permutations(avail).forEach(perm=>{
+      const {fitted,endTime}=simulateDay(perm);
+      if(fitted>bestFitted||(fitted===bestFitted&&endTime<bestEnd)){
+        bestFitted=fitted; bestEnd=endTime; bestOrder=perm;
+      }
+    });
+  } else {
+    // Greedy: sort by earliest available window start time
+    bestOrder=[...avail].sort((a,b)=>{
+      const aw=getWindows(a,day),bw=getWindows(b,day);
+      const aStart=aw?Math.max(12*60,aw[0].start):19*60;
+      const bStart=bw?Math.max(12*60,bw[0].start):19*60;
+      return aStart-bStart;
+    });
+  }
+
+  return bestOrder;
 }
 
   function toET(t,tz){const off=TZ_OFF[tz]||0,[h,m]=t.split(':').map(Number);let eh=h+off;if(eh<0)eh+=24;if(eh>=24)eh-=24;return `${String(eh).padStart(2,'0')}:${String(m).padStart(2,'0')}`;}
@@ -571,6 +629,11 @@ function onDrop(e,day,name){
   dayOrders[day]=names;dragSrc=null;dragDay=null;renderDayBreakdown();
 }
 
+function resetDayOrder(day){
+  delete dayOrders[day];
+  renderDayBreakdown();
+}
+
 function renderDayBreakdown(){
   const wrap=document.getElementById('day-breakdown');
   if(!submissions.length&&!offDays.length){wrap.innerHTML='<div style="font-size:13px;color:var(--muted);">Load submissions to see day-by-day availability.</div>';return;}
@@ -610,6 +673,7 @@ function renderDayBreakdown(){
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:${avail.length?'6px':'0'};">
         <div class="day-row-name">${day.slice(0,3)}</div>
         <div class="day-row-date">${ds}</div>
+        ${dayOrders[day]?`<button onclick="resetDayOrder('${day}')" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid var(--amber);background:transparent;color:var(--amber);cursor:pointer;font-family:'Barlow',sans-serif;">Manual — reset to auto</button>`:'<span style="font-size:10px;color:var(--muted);">Auto-ordered</span>'}
         <div class="day-count ${cc}" style="margin-left:auto;">${label}</div>
       </div>
       <div class="day-row-anchors">${anchorRows}</div>
