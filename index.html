@@ -673,7 +673,7 @@ function onDrop(e,day,name){
   // Reject if proposed order causes any new conflicts
   const newlyConflicted=newConflicts.filter(n=>!currentConflicts.includes(n));
   if(newlyConflicted.length>0){
-    toastError(`${newlyConflicted.join(', ')} ${newlyConflicted.length>1?'don't':'doesn't'} fit in this position — availability conflict`);
+    toastError(newlyConflicted.join(', ') + (newlyConflicted.length>1?' dont':' doesnt') + ' fit in this position — availability conflict');
     dragSrc=null;dragDay=null;
     renderDayBreakdown();
     return;
