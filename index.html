@@ -11,40 +11,35 @@
       --black: #0a0a0a; --dark: #111111; --dark2: #1a1a1a; --dark3: #242424;
       --border: #2e2e2e; --border2: #3a3a3a; --white: #ffffff; --off-white: #e8e8e8;
       --muted: #888888; --accent: #c8f000; --red: #ff3b30; --green: #34c759;
-      --green-bg: rgba(52,199,89,0.12); --radius-sm: 4px; --radius-md: 8px; --radius-lg: 12px;
+      --green-bg: rgba(52,199,89,0.12); --amber: #ff9f0a; --amber-bg: rgba(255,159,10,0.12);
+      --radius-sm: 4px; --radius-md: 8px; --radius-lg: 12px;
     }
     body { font-family: 'Barlow', sans-serif; background: var(--black); color: var(--white); min-height: 100vh; }
-
     .topbar { background: var(--dark); border-bottom: 1px solid var(--border); padding: 0 1.5rem; display: flex; align-items: center; height: 58px; gap: 12px; position: sticky; top: 0; z-index: 100; }
     .logo { display: flex; align-items: center; gap: 10px; margin-right: auto; }
-    .logo-mark { background: var(--accent); color: var(--black); font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 13px; letter-spacing: 0.05em; padding: 4px 8px; border-radius: var(--radius-sm); line-height: 1; }
+    .logo-mark { background: var(--accent); color: var(--black); font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 13px; letter-spacing: 0.05em; padding: 4px 8px; border-radius: 4px; line-height: 1; }
     .logo-text { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 17px; letter-spacing: 0.08em; text-transform: uppercase; }
     .logo-divider { width: 1px; height: 18px; background: var(--border2); }
     .logo-sub { font-size: 12px; color: var(--muted); font-weight: 500; }
-    .live-badge { display: inline-flex; align-items: center; gap: 5px; background: rgba(255,59,48,0.15); border: 1px solid rgba(255,59,48,0.3); color: var(--red); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 8px; border-radius: var(--radius-sm); }
+    .live-badge { display: inline-flex; align-items: center; gap: 5px; background: rgba(255,59,48,0.15); border: 1px solid rgba(255,59,48,0.3); color: var(--red); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; }
     .live-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--red); animation: pulse 1.5s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-    .nav-btn { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 500; padding: 7px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border2); background: transparent; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+    .nav-btn { font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 500; padding: 7px 16px; border-radius: 4px; border: 1px solid var(--border2); background: transparent; color: var(--muted); cursor: pointer; transition: all 0.15s; }
     .nav-btn.active { background: var(--accent); color: var(--black); border-color: var(--accent); font-weight: 600; }
     .nav-btn:hover:not(.active) { background: var(--dark3); color: var(--white); }
-
-    .container { max-width: 620px; margin: 0 auto; padding: 2rem 1.25rem; }
+    .container { max-width: 640px; margin: 0 auto; padding: 2rem 1.25rem; }
     .view { display: none; }
     .view.active { display: block; }
-
     .hero-strip { border-left: 3px solid var(--accent); padding-left: 14px; margin-bottom: 2rem; }
     .hero-strip h1 { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1.1; }
     .hero-strip p { font-size: 14px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
-
-    .section-label { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 14px; }
-
+    .section-label { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 14px; margin-top: 1.75rem; }
     .field { margin-bottom: 1.25rem; }
     .field label { display: block; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
-    .field input, .field select { width: 100%; padding: 10px 14px; font-size: 14px; font-family: 'Barlow', sans-serif; background: var(--dark2); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--white); outline: none; transition: border 0.15s; }
+    .field input, .field select { width: 100%; padding: 10px 14px; font-size: 14px; font-family: 'Barlow', sans-serif; background: var(--dark2); border: 1px solid var(--border2); border-radius: 4px; color: var(--white); outline: none; transition: border 0.15s; }
     .field input:focus, .field select:focus { border-color: var(--accent); }
     .field select option { background: var(--dark2); }
-
-    .day-card { background: var(--dark); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 8px; transition: opacity 0.2s; }
+    .day-card { background: var(--dark); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 8px; transition: opacity 0.2s; }
     .day-card.off { opacity: 0.35; }
     .day-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
     .day-name { font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
@@ -54,67 +49,75 @@
     .toggle-btn.on { background: var(--red); }
     .toggle-btn::after { content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: white; top: 3px; left: 3px; transition: left 0.2s; }
     .toggle-btn.on::after { left: 19px; }
-
     .blocks-wrap { display: flex; flex-direction: column; gap: 8px; }
-    .block-row { background: var(--dark2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; }
+    .block-row { background: var(--dark2); border: 1px solid var(--border); border-radius: 4px; padding: 10px 12px; }
     .block-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
     .block-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
     .rm-btn { background: none; border: none; font-size: 18px; color: var(--muted); cursor: pointer; line-height: 1; padding: 0; transition: color 0.15s; }
     .rm-btn:hover { color: var(--red); }
     .block-fields { display: grid; gap: 8px; }
     .mini-field label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; display: block; }
-    .mini-field input, .mini-field select { width: 100%; padding: 8px 10px; font-size: 13px; font-family: 'Barlow', sans-serif; background: var(--dark3); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--white); outline: none; }
+    .mini-field input, .mini-field select { width: 100%; padding: 8px 10px; font-size: 13px; font-family: 'Barlow', sans-serif; background: var(--dark3); border: 1px solid var(--border); border-radius: 4px; color: var(--white); outline: none; }
     .mini-field input:focus, .mini-field select:focus { border-color: var(--accent); }
     .mini-field select option { background: var(--dark3); }
-    .add-btn { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: 1px dashed var(--border2); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 13px; color: var(--muted); cursor: pointer; margin-top: 6px; transition: all 0.15s; font-family: 'Barlow', sans-serif; }
+    .add-btn { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: 1px dashed var(--border2); border-radius: 4px; padding: 8px 12px; font-size: 13px; color: var(--muted); cursor: pointer; margin-top: 6px; transition: all 0.15s; font-family: 'Barlow', sans-serif; }
     .add-btn:hover { border-color: var(--accent); color: var(--accent); }
     .add-circle { width: 18px; height: 18px; border-radius: 50%; background: var(--border2); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
     .notes-row { margin-top: 10px; }
     .notes-row label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; display: block; }
-    .notes-row textarea { width: 100%; font-size: 13px; font-family: 'Barlow', sans-serif; resize: none; height: 44px; padding: 8px 10px; background: var(--dark3); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--white); outline: none; }
+    .notes-row textarea { width: 100%; font-size: 13px; font-family: 'Barlow', sans-serif; resize: none; height: 44px; padding: 8px 10px; background: var(--dark3); border: 1px solid var(--border); border-radius: 4px; color: var(--white); outline: none; }
     .notes-row textarea:focus { border-color: var(--accent); }
-
-    .primary-btn { width: 100%; padding: 13px; background: var(--accent); color: var(--black); border: none; border-radius: var(--radius-sm); font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; margin-top: 1.5rem; transition: opacity 0.15s; }
+    .primary-btn { width: 100%; padding: 13px; background: var(--accent); color: var(--black); border: none; border-radius: 4px; font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; margin-top: 1.5rem; transition: opacity 0.15s; }
     .primary-btn:hover { opacity: 0.88; }
     .primary-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-    .accent-btn { padding: 9px 18px; background: var(--accent); color: var(--black); border: none; border-radius: var(--radius-sm); font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; white-space: nowrap; transition: opacity 0.15s; }
+    .accent-btn { padding: 9px 18px; background: var(--accent); color: var(--black); border: none; border-radius: 4px; font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; white-space: nowrap; transition: opacity 0.15s; }
     .accent-btn:hover { opacity: 0.88; }
-    .ghost-btn { padding: 7px 14px; background: transparent; color: var(--muted); border: 1px solid var(--border2); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; font-family: 'Barlow', sans-serif; transition: all 0.15s; }
+    .ghost-btn { padding: 7px 14px; background: transparent; color: var(--muted); border: 1px solid var(--border2); border-radius: 4px; font-size: 13px; cursor: pointer; font-family: 'Barlow', sans-serif; transition: all 0.15s; }
     .ghost-btn:hover { background: var(--dark3); color: var(--white); }
-
     .success-wrap { text-align: center; padding: 3.5rem 1rem; }
     .check-circle { width: 64px; height: 64px; border-radius: 50%; background: var(--green-bg); border: 2px solid var(--green); display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 26px; color: var(--green); }
     .success-wrap h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 10px; }
     .success-wrap p { font-size: 14px; color: var(--muted); line-height: 1.7; }
-
     .producer-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.75rem; }
-    .week-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .week-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .week-row label { font-size: 13px; color: var(--muted); font-weight: 500; }
-    .week-row input { padding: 7px 10px; font-size: 13px; font-family: 'Barlow', sans-serif; background: var(--dark2); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--white); outline: none; }
+    .week-row input { padding: 7px 10px; font-size: 13px; font-family: 'Barlow', sans-serif; background: var(--dark2); border: 1px solid var(--border2); border-radius: 4px; color: var(--white); outline: none; }
     .week-row input:focus { border-color: var(--accent); }
-
+    .roster-input-row { display: flex; gap: 8px; margin-bottom: 10px; }
+    .roster-input-row input { flex: 1; padding: 8px 12px; font-size: 13px; font-family: 'Barlow', sans-serif; background: var(--dark2); border: 1px solid var(--border2); border-radius: 4px; color: var(--white); outline: none; }
+    .roster-input-row input:focus { border-color: var(--accent); }
+    .roster-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .roster-chip { display: flex; align-items: center; gap: 6px; background: var(--dark2); border: 1px solid var(--border2); border-radius: 99px; padding: 4px 10px 4px 8px; font-size: 12px; color: var(--off-white); }
+    .rm-anchor { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 0; transition: color 0.15s; }
+    .rm-anchor:hover { color: var(--red); }
+    .missing-banner { background: var(--amber-bg); border: 1px solid rgba(255,159,10,0.3); border-radius: 4px; padding: 10px 14px; margin-bottom: 4px; }
+    .missing-banner-title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber); margin-bottom: 6px; }
+    .missing-names { display: flex; flex-wrap: wrap; gap: 6px; }
+    .missing-pill { background: rgba(255,159,10,0.15); border: 1px solid rgba(255,159,10,0.25); border-radius: 99px; padding: 3px 10px; font-size: 12px; color: var(--amber); }
     .anchor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
-    .anchor-chip { background: var(--dark2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; display: flex; align-items: center; gap: 8px; }
+    .anchor-chip { background: var(--dark2); border: 1px solid var(--border); border-radius: 4px; padding: 10px 12px; display: flex; align-items: center; gap: 8px; }
     .avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(200,240,0,0.12); display: flex; align-items: center; justify-content: center; font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 800; color: var(--accent); flex-shrink: 0; }
     .chip-name { font-size: 13px; font-weight: 600; }
-    .chip-tz { font-size: 11px; color: var(--muted); }
+    .chip-sub { font-size: 11px; color: var(--muted); }
     .green-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); margin-left: auto; flex-shrink: 0; }
-
-    .schedule-box { background: var(--dark); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.25rem; }
+    .day-breakdown { display: flex; flex-direction: column; gap: 6px; }
+    .day-row { background: var(--dark2); border: 1px solid var(--border); border-radius: 4px; padding: 10px 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .day-row-name { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); width: 36px; flex-shrink: 0; }
+    .day-row-date { font-size: 11px; color: var(--muted); width: 44px; flex-shrink: 0; }
+    .day-anchors { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; }
+    .day-anchor-pill { background: rgba(200,240,0,0.1); border: 1px solid rgba(200,240,0,0.2); border-radius: 99px; padding: 3px 9px; font-size: 12px; font-weight: 500; color: var(--accent); }
+    .day-none { font-size: 12px; color: var(--red); opacity: 0.7; }
+    .day-count { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+    .day-count.ok { color: var(--green); }
+    .day-count.warn { color: var(--amber); }
+    .day-count.bad { color: var(--red); }
+    .schedule-box { background: var(--dark); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
     .schedule-box pre { font-family: 'Courier New', monospace; font-size: 12.5px; line-height: 1.85; white-space: pre-wrap; word-break: break-word; color: var(--off-white); }
     .schedule-empty { text-align: center; padding: 2.5rem; color: var(--muted); font-size: 14px; }
     .action-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-
-    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--accent); color: var(--black); padding: 10px 20px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; letter-spacing: 0.04em; opacity: 0; transition: opacity 0.25s; pointer-events: none; z-index: 999; white-space: nowrap; text-transform: uppercase; }
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--accent); color: var(--black); padding: 10px 20px; border-radius: 4px; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; opacity: 0; transition: opacity 0.25s; pointer-events: none; z-index: 999; white-space: nowrap; text-transform: uppercase; }
     .toast.show { opacity: 1; }
-
-    @media (max-width: 500px) {
-      .topbar { padding: 0 1rem; gap: 8px; }
-      .logo-sub, .logo-divider { display: none; }
-      .container { padding: 1.25rem 1rem; }
-      .producer-top { flex-direction: column; }
-      .accent-btn { width: 100%; text-align: center; }
-    }
+    @media (max-width: 500px) { .topbar { padding: 0 1rem; gap: 8px; } .logo-sub, .logo-divider { display: none; } .container { padding: 1.25rem 1rem; } .producer-top { flex-direction: column; } .accent-btn { width: 100%; text-align: center; } }
   </style>
 </head>
 <body>
@@ -136,7 +139,7 @@
     <div id="form-body">
       <div class="hero-strip">
         <h1>Your Availability</h1>
-        <p>Submit your schedule for next week. All times in your local timezone — we'll handle the conversion.</p>
+        <p>Submit your schedule for next week. All times in your local timezone — we handle the conversion.</p>
       </div>
       <div class="field"><label>Your name</label><input type="text" id="anchor-name" placeholder="e.g. Patrick" /></div>
       <div class="field">
@@ -151,15 +154,15 @@
           <option value="AEST">Sydney (AEST)</option>
         </select>
       </div>
-      <div class="section-label">Availability by day</div>
+      <div class="section-label" style="margin-top:0;">Availability by day</div>
       <div id="days-container"></div>
       <button class="primary-btn" id="submit-btn" onclick="submitForm()">Submit Availability</button>
     </div>
     <div id="form-success" style="display:none;">
       <div class="success-wrap">
-        <div class="check-circle">✓</div>
+        <div class="check-circle">V</div>
         <h2>Submitted</h2>
-        <p>Your availability has been saved.<br>Ops will share your slot once the schedule is ready.</p>
+        <p>Your availability has been saved. Ops will share your slot once the schedule is ready.</p>
       </div>
     </div>
   </div>
@@ -168,19 +171,36 @@
     <div class="producer-top">
       <div class="hero-strip" style="margin-bottom:0;">
         <h1>Producer View</h1>
-        <p>Review submissions &amp; generate the weekly schedule.</p>
+        <p>Review submissions and generate the weekly schedule.</p>
       </div>
       <button class="accent-btn" onclick="generateSchedule()">Generate</button>
     </div>
+
     <div class="week-row">
       <label>Week of</label>
       <input type="date" id="week-start" onchange="loadSubmissions()" />
       <button class="ghost-btn" onclick="loadSubmissions()">Refresh</button>
     </div>
-    <div class="section-label" style="margin-top:1.5rem;">Submissions</div>
-    <div class="anchor-grid" id="submissions-grid" style="margin-bottom:1.75rem;">
+
+    <div class="section-label">Anchor Roster</div>
+    <div class="roster-chips" id="roster-chips"></div>
+    <div class="roster-input-row">
+      <input type="text" id="roster-input" placeholder="Add anchor name..." onkeydown="if(event.key==='Enter') addToRoster()" />
+      <button class="ghost-btn" onclick="addToRoster()">Add</button>
+    </div>
+
+    <div id="missing-banner" style="display:none;"></div>
+
+    <div class="section-label">Submitted This Week</div>
+    <div class="anchor-grid" id="submissions-grid" style="margin-bottom:0.5rem;">
       <div style="font-size:13px;color:var(--muted);">Select a week and click Refresh.</div>
     </div>
+
+    <div class="section-label">Availability by Day</div>
+    <div id="day-breakdown" class="day-breakdown">
+      <div style="font-size:13px;color:var(--muted);">Load submissions to see day-by-day availability.</div>
+    </div>
+
     <div class="section-label">Generated Schedule</div>
     <div class="schedule-box" id="schedule-box">
       <div class="schedule-empty">Click "Generate" to build this week's schedule.</div>
@@ -198,8 +218,10 @@
   const SCRIPT_URL = "https://script.google.com/a/macros/steadystreamslive.com/s/AKfycbwC4fUr-nHP9ApUwpc5tDomE8ga4Ar7WoNJuWGcNVLuRD1WOKUKX4RCihCeXklvV8Mv/exec";
   const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const OFF_DAYS = ['Tuesday','Saturday'];
+  const WORK_DAYS = DAYS.filter(d => !OFF_DAYS.includes(d));
   const TZ_OFF = { ET:0, CT:1, PT:3, GMT:-5, CET:-6, IST:-10.5, AEST:-16 };
   let submissions = [], blockCounts = {};
+  let roster = JSON.parse(localStorage.getItem('nf_roster') || '["Patrick","Macy","Will"]');
 
   function toast(msg, ms=2500) { const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),ms); }
   async function api(payload) { const r=await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify(payload)}); return r.json(); }
@@ -209,11 +231,32 @@
     document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
     document.getElementById('view-'+view).classList.add('active');
     btn.classList.add('active');
-    if(view==='producer') loadSubmissions();
+    if(view==='producer'){ renderRoster(); loadSubmissions(); }
   }
 
   function getWeekMonday() { return document.getElementById('week-start').value; }
   function nextMonday() { const d=new Date(); d.setDate(d.getDate()+((8-d.getDay())%7||7)); return d.toISOString().split('T')[0]; }
+
+  function saveRoster() { localStorage.setItem('nf_roster', JSON.stringify(roster)); }
+  function addToRoster() {
+    const inp=document.getElementById('roster-input'), name=inp.value.trim();
+    if(!name||roster.includes(name)){inp.value='';return;}
+    roster.push(name); saveRoster(); renderRoster(); inp.value='';
+    renderMissing(); renderDayBreakdown();
+  }
+  function removeFromRoster(name) { roster=roster.filter(n=>n!==name); saveRoster(); renderRoster(); renderMissing(); renderDayBreakdown(); }
+  function renderRoster() {
+    document.getElementById('roster-chips').innerHTML=roster.map(n=>`<div class="roster-chip"><span>${n}</span><button class="rm-anchor" onclick="removeFromRoster('${n}')">x</button></div>`).join('');
+  }
+
+  function renderMissing() {
+    const banner=document.getElementById('missing-banner');
+    const submitted=submissions.map(s=>s.name.toLowerCase());
+    const missing=roster.filter(n=>!submitted.includes(n.toLowerCase()));
+    if(!missing.length||!roster.length){banner.style.display='none';return;}
+    banner.style.display='block';
+    banner.innerHTML=`<div class="missing-banner"><div class="missing-banner-title">Has not submitted yet</div><div class="missing-names">${missing.map(n=>`<span class="missing-pill">${n}</span>`).join('')}</div></div>`;
+  }
 
   async function loadSubmissions() {
     const wm=getWeekMonday(); if(!wm) return;
@@ -221,7 +264,7 @@
     grid.innerHTML='<div style="font-size:13px;color:var(--muted);">Loading...</div>';
     try {
       const res=await api({action:'getSubmissions',weekMonday:wm});
-      submissions=res.submissions||[]; renderChips();
+      submissions=res.submissions||[]; renderChips(); renderMissing(); renderDayBreakdown();
     } catch(e) { grid.innerHTML='<div style="font-size:13px;color:var(--muted);">Connection error.</div>'; }
   }
 
@@ -230,7 +273,22 @@
     if(!submissions.length){grid.innerHTML='<div style="font-size:13px;color:var(--muted);">No submissions yet.</div>';return;}
     grid.innerHTML=submissions.map(s=>{
       const init=s.name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
-      return `<div class="anchor-chip"><div class="avatar">${init}</div><div><div class="chip-name">${s.name}</div><div class="chip-tz">${s.tz}</div></div><span class="green-dot"></span></div>`;
+      return `<div class="anchor-chip"><div class="avatar">${init}</div><div><div class="chip-name">${s.name}</div><div class="chip-sub">${s.tz}</div></div><span class="green-dot"></span></div>`;
+    }).join('');
+  }
+
+  function renderDayBreakdown() {
+    const wrap=document.getElementById('day-breakdown');
+    if(!submissions.length){wrap.innerHTML='<div style="font-size:13px;color:var(--muted);">Load submissions to see day-by-day availability.</div>';return;}
+    const wm=getWeekMonday(), sd=wm?new Date(wm+'T12:00:00'):new Date();
+    wrap.innerHTML=WORK_DAYS.map((day,di)=>{
+      const dt=new Date(sd); dt.setDate(sd.getDate()+di);
+      const ds=dt.toLocaleDateString('en-US',{month:'numeric',day:'numeric'});
+      const avail=submissions.filter(a=>getWindows(a,day));
+      const count=avail.length, cc=count>=3?'ok':count>=1?'warn':'bad';
+      const label=count===0?'None':count===1?'1 anchor':`${count} anchors`;
+      const pills=avail.length?avail.map(a=>`<span class="day-anchor-pill">${a.name}</span>`).join(''):`<span class="day-none">No one available</span>`;
+      return `<div class="day-row"><div class="day-row-name">${day.slice(0,3)}</div><div class="day-row-date">${ds}</div><div class="day-anchors">${pills}</div><div class="day-count ${cc}">${label}</div></div>`;
     }).join('');
   }
 
@@ -244,16 +302,7 @@
       const isOff=OFF_DAYS.includes(day); blockCounts[day]=0;
       const card=document.createElement('div');
       card.className='day-card'+(isOff?' off':''); card.id='daycard-'+day;
-      card.innerHTML=`
-        <div class="day-header">
-          <div><div class="day-name">${day}</div><div class="day-date">${ds}</div></div>
-          <label class="off-label"><span>Off</span><button class="toggle-btn ${isOff?'on':''}" id="tog-${day}" onclick="toggleOff('${day}',this)"></button></label>
-        </div>
-        <div id="avail-${day}" style="${isOff?'display:none':''}">
-          <div class="blocks-wrap" id="blocks-${day}"></div>
-          <button class="add-btn" onclick="addBlock('${day}')"><span class="add-circle">+</span> Add another time block</button>
-          <div class="notes-row"><label>Notes (location, context)</label><textarea id="notes-${day}" placeholder="e.g. Brussels, final exams..."></textarea></div>
-        </div>`;
+      card.innerHTML=`<div class="day-header"><div><div class="day-name">${day}</div><div class="day-date">${ds}</div></div><label class="off-label"><span>Off</span><button class="toggle-btn ${isOff?'on':''}" id="tog-${day}" onclick="toggleOff('${day}',this)"></button></label></div><div id="avail-${day}" style="${isOff?'display:none':''}"><div class="blocks-wrap" id="blocks-${day}"></div><button class="add-btn" onclick="addBlock('${day}')"><span class="add-circle">+</span> Add another time block</button><div class="notes-row"><label>Notes (location, context)</label><textarea id="notes-${day}" placeholder="e.g. Brussels, final exams..."></textarea></div></div>`;
       wrap.appendChild(card); addBlock(day);
     });
   }
@@ -263,7 +312,7 @@
   function addBlock(day){
     const wrap=document.getElementById('blocks-'+day),id=++blockCounts[day],first=id===1;
     const div=document.createElement('div'); div.className='block-row'; div.id=`blk-${day}-${id}`;
-    div.innerHTML=`<div class="block-top"><span class="block-tag">${first?'Availability':'Block '+id}</span>${!first?`<button class="rm-btn" onclick="rmBlock('${day}',${id})">×</button>`:''}</div><div class="block-fields" id="bf-${day}-${id}"><div class="mini-field"><label>Type</label><select onchange="updateType('${day}',${id},this.value)"><option value="all">Available all day</option><option value="before">Available until a time</option><option value="unavailable">Unavailable during window</option></select></div></div>`;
+    div.innerHTML=`<div class="block-top"><span class="block-tag">${first?'Availability':'Block '+id}</span>${!first?`<button class="rm-btn" onclick="rmBlock('${day}',${id})">x</button>`:''}</div><div class="block-fields" id="bf-${day}-${id}"><div class="mini-field"><label>Type</label><select onchange="updateType('${day}',${id},this.value)"><option value="all">Available all day</option><option value="before">Available until a time</option><option value="unavailable">Unavailable during window</option></select></div></div>`;
     wrap.appendChild(div); updateType(day,id,'all');
   }
 
@@ -319,16 +368,15 @@
   }
 
   function generateSchedule(){
-    const wm=getWeekMonday(); if(!wm){toast('Select a week first.');return;} if(!submissions.length){toast('No submissions — click Refresh first.');return;}
-    const sd=new Date(wm+'T12:00:00'),WORK=DAYS.filter(d=>!OFF_DAYS.includes(d));
-    let out='';
-    WORK.forEach((day,di)=>{
+    const wm=getWeekMonday(); if(!wm){toast('Select a week first.');return;} if(!submissions.length){toast('No submissions - click Refresh first.');return;}
+    const sd=new Date(wm+'T12:00:00'); let out='';
+    WORK_DAYS.forEach((day,di)=>{
       const dt=new Date(sd);dt.setDate(sd.getDate()+di);
       out+=`${day.toUpperCase()} ${dt.toLocaleDateString('en-US',{month:'numeric',day:'numeric'})}\n`;
       out+=`Ops Prep ${fmt(11*60)} - ${fmt(12*60)} ET (${fmtPT(11*60)} - ${fmtPT(12*60)} PT)\n`;
       let cur=12*60;const notes=[],avail=submissions.filter(a=>getWindows(a,day));
       avail.forEach((anchor,idx)=>{
-        const wins=getWindows(anchor,day),PREP=30,READ=60,BRK=30,TOT=90;
+        const wins=getWindows(anchor,day),TOT=90,PREP=30,BRK=30;
         let ok=false;
         for(const w of wins){const ss=Math.max(cur,w.start);if(ss+TOT<=w.end&&ss+TOT<=19*60){const pe=ss+PREP,re=ss+TOT;out+=`\n${anchor.name} | Live to Tape Test / Prep: ${fmt(ss)} - ${fmt(pe)} ET (${fmtPT(ss)} - ${fmtPT(pe)} PT) Read: ${fmt(pe)} - ${fmt(re)} ET (${fmtPT(pe)} - ${fmtPT(re)} PT)\n`;cur=re;if(idx<avail.length-1){out+=`Break / SOT Check ${fmt(cur)} - ${fmt(cur+BRK)} ET (${fmtPT(cur)} - ${fmtPT(cur+BRK)} PT)\n`;cur+=BRK;}ok=true;break;}}
         if(!ok) notes.push(`* ${anchor.name} could not be fit on ${day}.`);
@@ -347,6 +395,7 @@
 
   buildDays();
   document.getElementById('week-start').value=nextMonday();
+  renderRoster();
 </script>
 </body>
 </html>
