@@ -310,7 +310,16 @@
     <div class="action-row" id="action-row" style="display:none;">
       <button class="ghost-btn" onclick="copySchedule()">Copy</button>
       <button class="ghost-btn" onclick="saveToSheet()">Save to Sheet</button>
+      <button class="ghost-btn" onclick="showICSMenu()">Download ICS</button>
       <button class="accent-btn" id="cal-btn" onclick="pushToCalendar()">Push to Calendar</button>
+    </div>
+
+    <!-- ICS MENU -->
+    <div id="ics-menu" style="display:none;margin-top:10px;">
+      <div style="background:var(--dark2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Download ICS File</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;" id="ics-buttons"></div>
+      </div>
     </div>
   </div>
 
@@ -943,6 +952,103 @@ function generateSchedule(){
 
 function copySchedule(){if(window._sched)navigator.clipboard.writeText(window._sched).then(()=>toast('Copied!'));}
 async function saveToSheet(){const wm=getWeekMonday();if(!wm||!window._sched)return;try{const r=await api({action:'saveSchedule',weekMonday:wm,scheduleText:window._sched});toast(r.success?'Saved to Sheet!':'Error: '+r.error);}catch(e){toast('Connection error.');}}
+
+function formatICSDate(isoStr){
+  // Convert ISO string to ICS format: 20250505T120000
+  return isoStr.replace(/[-:]/g,'').replace('.000Z','').split('T')[0]+'T'+isoStr.replace(/[-:]/g,'').split('T')[1].slice(0,6);
+}
+
+function toISOLocal(dateStr, mins){
+  const h=Math.floor(mins/60),m=mins%60;
+  return dateStr+'T'+String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':00';
+}
+
+function generateICSContent(events, title){
+  var CRLF = String.fromCharCode(13,10);
+  var uid_base = Date.now();
+  var lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//NewsForce Anchor Scheduler//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'X-WR-CALNAME:' + title,
+    'X-WR-TIMEZONE:America/New_York'
+  ];
+  events.forEach(function(ev, i){
+    var startDT = ev.start.replace(/-/g,'').replace(/:/g,'').slice(0,15);
+    var endDT = ev.end.replace(/-/g,'').replace(/:/g,'').slice(0,15);
+    var stamp = new Date().toISOString().replace(/-/g,'').replace(/:/g,'').slice(0,15) + 'Z';
+    lines = lines.concat([
+      'BEGIN:VEVENT',
+      'UID:nf-' + uid_base + '-' + i + '@steadystreamslive.com',
+      'DTSTAMP:' + stamp,
+      'DTSTART;TZID=America/New_York:' + startDT,
+      'DTEND;TZID=America/New_York:' + endDT,
+      'SUMMARY:[NF] ' + ev.title,
+      'DESCRIPTION:' + (ev.description || ''),
+      'END:VEVENT'
+    ]);
+  });
+  lines.push('END:VCALENDAR');
+  return lines.join(CRLF);
+}
+
+
+function downloadICS(content, filename){
+  const blob = new Blob([content], {type:'text/calendar;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function showICSMenu(){
+  const menu = document.getElementById('ics-menu');
+  const btns = document.getElementById('ics-buttons');
+  const isOpen = menu.style.display !== 'none';
+  if(isOpen){ menu.style.display='none'; return; }
+
+  if(!window._calEvents||!window._calEvents.length){
+    toast('Generate a schedule first.');return;
+  }
+
+  // Build buttons - full schedule + one per anchor
+  const anchorNames = [...new Set(window._calEvents
+    .filter(e=>e.title.includes(' - Tech Check')||e.title.includes(' - Read')||e.title.includes('Half Read'))
+    .map(e=>e.title.split(' - ')[0]))];
+
+  let html = `<button class="ghost-btn" onclick="downloadFullICS()">Full Schedule</button>`;
+  anchorNames.forEach(name => {
+    html += `<button class="ghost-btn" onclick="downloadAnchorICS('${name}')">${name} only</button>`;
+  });
+  btns.innerHTML = html;
+  menu.style.display = 'block';
+}
+
+function downloadFullICS(){
+  const wm = getWeekMonday();
+  const ics = generateICSContent(window._calEvents, 'NewsForce Schedule');
+  const weekLabel = wm ? wm : 'week';
+  downloadICS(ics, `NewsForce_Schedule_${weekLabel}.ics`);
+  toast('Full schedule downloaded!');
+}
+
+function downloadAnchorICS(anchorName){
+  const anchorEvents = window._calEvents.filter(e =>
+    e.title.startsWith(anchorName + ' -') || e.title === 'Ops Prep'
+  );
+  // For anchor ICS only include their personal slots (not ops prep)
+  const personalEvents = window._calEvents.filter(e =>
+    e.title.startsWith(anchorName + ' -')
+  );
+  const wm = getWeekMonday();
+  const ics = generateICSContent(personalEvents, `NewsForce - ${anchorName}`);
+  downloadICS(ics, `NewsForce_${anchorName}_${wm||'week'}.ics`);
+  toast(`${anchorName} ICS downloaded!`);
+}
 
 async function pushToCalendar(){
   if(!window._calEvents||!window._calEvents.length){toast('Generate a schedule first.');return;}
