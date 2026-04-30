@@ -157,6 +157,10 @@
     .day-read-toggle{display:flex;gap:3px;margin-left:auto;}
     .day-read-opt{padding:2px 8px;border-radius:3px;border:1px solid var(--border2);background:transparent;font-size:10px;font-weight:600;color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;transition:all 0.15s;}
     .day-read-opt.active{background:rgba(200,240,0,0.15);border-color:rgba(200,240,0,0.4);color:var(--accent);}
+    .reorder-btns{display:flex;flex-direction:column;gap:2px;flex-shrink:0;}
+    .reorder-btn{background:none;border:1px solid var(--border2);border-radius:3px;color:var(--muted);cursor:pointer;font-size:10px;line-height:1;padding:2px 5px;transition:all 0.15s;font-family:'Barlow',sans-serif;}
+    .reorder-btn:hover{background:var(--dark3);color:var(--white);}
+    .reorder-btn:disabled{opacity:0.2;cursor:default;}
     @media(max-width:500px){.topbar{padding:0 1rem;gap:8px;}.logo-sub,.logo-divider{display:none;}.container{padding:1.25rem 1rem;}.producer-top{flex-direction:column;}.accent-btn{width:100%;text-align:center;}}
   </style>
 </head>
@@ -302,7 +306,7 @@
 const SCRIPT_URL="https://script.google.com/a/macros/steadystreamslive.com/s/AKfycbwC4fUr-nHP9ApUwpc5tDomE8ga4Ar7WoNJuWGcNVLuRD1WOKUKX4RCihCeXklvV8Mv/exec";
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const TZ_OFF={ET:0,CT:1,PT:3,GMT:-5,CET:-6,IST:-10.5,AEST:-16};
-let submissions=[],blockCounts={},roster=[],offDays=[],readTypes={},producerUnlocked=false;
+let submissions=[],blockCounts={},roster=[],offDays=[],readTypes={},dayOrders={},producerUnlocked=false;
 
 function toast(msg,ms=2500){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),ms);}
 async function api(payload){const r=await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify(payload)});return r.json();}
@@ -340,7 +344,24 @@ function checkPassword(){
 }
 
 function getWeekMonday(){return document.getElementById('week-start').value;}
-function nextMonday(){const d=new Date();d.setDate(d.getDate()+((8-d.getDay())%7||7));return d.toISOString().split('T')[0];}
+function nextMonday(){
+  const d=new Date();
+  const dow=d.getDay(); // 0=Sun,1=Mon,...,3=Wed,...,6=Sat
+  // Flip to next week's Monday on Wednesday (3) or later
+  // Before Wednesday, show current week's Monday
+  let daysToMon;
+  if(dow===0) daysToMon=1; // Sunday -> next Mon
+  else if(dow<=2) daysToMon=8-dow-(dow===1?7:0); // Mon/Tue -> this week's Mon (already past, show current)
+  else daysToMon=8-dow; // Wed-Sat -> next Mon
+  // Simpler: if day>=3 (Wed+), next Monday; else this Monday
+  if(dow>=3||dow===0){
+    // next Monday
+    const nd=new Date(d); nd.setDate(d.getDate()+((8-dow)%7||7)); return nd.toISOString().split('T')[0];
+  } else {
+    // this Monday (Mon or Tue - current week)
+    const nd=new Date(d); nd.setDate(d.getDate()-(dow-1)); return nd.toISOString().split('T')[0];
+  }
+}
 
 function mondayToWeekRange(wm){
   if(!wm)return '';
@@ -461,6 +482,31 @@ function getDayRead(anchorName,day){
   return 'full';
 }
 
+function getOrderedAvail(day){
+  const avail=submissions.filter(a=>getWindows(a,day));
+  if(!dayOrders[day]) return avail;
+  const order=dayOrders[day];
+  return [...avail].sort((a,b)=>{
+    const ai=order.indexOf(a.name),bi=order.indexOf(b.name);
+    if(ai===-1&&bi===-1)return 0;
+    if(ai===-1)return 1;
+    if(bi===-1)return -1;
+    return ai-bi;
+  });
+}
+
+function moveDayAnchor(day,anchorName,dir){
+  const avail=getOrderedAvail(day);
+  const names=avail.map(a=>a.name);
+  const idx=names.indexOf(anchorName);
+  if(idx===-1)return;
+  const newIdx=idx+dir;
+  if(newIdx<0||newIdx>=names.length)return;
+  names.splice(idx,1);names.splice(newIdx,0,anchorName);
+  dayOrders[day]=names;
+  renderDayBreakdown();
+}
+
 function renderDayBreakdown(){
   const wrap=document.getElementById('day-breakdown');
   if(!submissions.length&&!offDays.length){wrap.innerHTML='<div style="font-size:13px;color:var(--muted);">Load submissions to see day-by-day availability.</div>';return;}
@@ -471,15 +517,20 @@ function renderDayBreakdown(){
     if(offDays.includes(day)){
       return `<div class="day-row"><div class="day-row-name">${day.slice(0,3)}</div><div class="day-row-date">${ds}</div><span class="day-off-pill">Day Off</span></div>`;
     }
-    const avail=submissions.filter(a=>getWindows(a,day));
+    const avail=getOrderedAvail(day);
     const count=avail.length,cc=count>=3?'ok':count>=1?'warn':'bad';
     const label=count===0?'None':count===1?'1 anchor':`${count} anchors`;
     if(!avail.length){
       return `<div class="day-row"><div class="day-row-name">${day.slice(0,3)}</div><div class="day-row-date">${ds}</div><div class="day-anchors"><span class="day-none">No one available</span></div><div class="day-count bad">None</div></div>`;
     }
-    const anchorRows=avail.map(a=>{
+    const anchorRows=avail.map((a,i)=>{
       const rt=getDayRead(a.name,day);
+      const isFirst=i===0,isLast=i===avail.length-1;
       return `<div class="day-anchor-row">
+        <div class="reorder-btns">
+          <button class="reorder-btn" onclick="moveDayAnchor('${day}','${a.name}',-1)" ${isFirst?'disabled':''}>up</button>
+          <button class="reorder-btn" onclick="moveDayAnchor('${day}','${a.name}',1)" ${isLast?'disabled':''}>dn</button>
+        </div>
         <span class="day-anchor-pill">${a.name}</span>
         <div class="day-read-toggle">
           <button class="day-read-opt ${rt==='full'?'active':''}" onclick="setDayRead('${a.name}','${day}','full',this)">Full 1hr</button>
@@ -644,7 +695,7 @@ function generateSchedule(){
     out+=`Ops Prep ${fmt(11*60)} - ${fmt(12*60)} ET (${fmtPT(11*60)} - ${fmtPT(12*60)} PT)\n`;
     window._calEvents.push({title:'Ops Prep',start:toISO(11*60),end:toISO(12*60),description:'NewsForce Ops Prep'});
 
-    let cur=12*60;const notes=[],avail=submissions.filter(a=>getWindows(a,day));
+    let cur=12*60;const notes=[],avail=getOrderedAvail(day);
 
     avail.forEach((anchor,idx)=>{
       const wins=getWindows(anchor,day);
