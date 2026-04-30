@@ -142,6 +142,7 @@
     .action-row{display:flex;justify-content:flex-end;gap:8px;margin-top:10px;flex-wrap:wrap;}
     .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--black);padding:10px 20px;border-radius:4px;font-size:13px;font-weight:700;letter-spacing:0.04em;opacity:0;transition:opacity 0.25s;pointer-events:none;z-index:999;white-space:nowrap;text-transform:uppercase;}
     .toast.show{opacity:1;}
+    .toast.error{background:var(--red);color:white;}
     .pw-screen{position:fixed;inset:0;background:var(--black);z-index:200;display:flex;align-items:center;justify-content:center;}
     .pw-box{background:var(--dark);border:1px solid var(--border);border-radius:12px;padding:2.5rem 2rem;width:100%;max-width:340px;text-align:center;}
     .pw-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;}
@@ -620,14 +621,61 @@ function onDragStart(e,day,name){dragSrc=name;dragDay=day;e.currentTarget.classL
 function onDragEnd(e){e.currentTarget.classList.remove('dragging');document.querySelectorAll('.day-anchor-row').forEach(r=>r.classList.remove('drag-over'));}
 function onDragOver(e,day,name){if(dragDay!==day||dragSrc===name)return;e.preventDefault();e.currentTarget.classList.add('drag-over');}
 function onDragLeave(e){e.currentTarget.classList.remove('drag-over');}
+function simulateOrder(orderedAnchors,day){
+  // Returns {fitted, conflicts} where conflicts is list of anchor names that dont fit
+  let cur=12*60;const conflicts=[];
+  for(let i=0;i<orderedAnchors.length;i++){
+    const anchor=orderedAnchors[i];
+    const wins=getWindows(anchor,day);
+    const isHalf=getDayRead(anchor.name,day)==='half';
+    const READ=isHalf?30:60,PREP=30,TOT=PREP+READ,BRK=i<orderedAnchors.length-1?30:0;
+    let placed=false;
+    for(const w of wins){
+      const ss=Math.max(cur,w.start);
+      if(ss+TOT<=w.end&&ss+TOT<=19*60){cur=ss+TOT+BRK;placed=true;break;}
+    }
+    if(!placed) conflicts.push(anchor.name);
+  }
+  return conflicts;
+}
+
+function toastError(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show','error');
+  setTimeout(()=>{el.classList.remove('show','error');},2500);
+}
+
 function onDrop(e,day,name){
   e.currentTarget.classList.remove('drag-over');
-  if(dragDay!==day||dragSrc===name)return;
+  if(dragDay!==day||dragSrc===name){dragSrc=null;dragDay=null;return;}
   const avail=getOrderedAvail(day),names=avail.map(a=>a.name);
   const fromIdx=names.indexOf(dragSrc),toIdx=names.indexOf(name);
-  if(fromIdx===-1||toIdx===-1)return;
-  names.splice(fromIdx,1);names.splice(toIdx,0,dragSrc);
-  dayOrders[day]=names;dragSrc=null;dragDay=null;renderDayBreakdown();
+  if(fromIdx===-1||toIdx===-1){dragSrc=null;dragDay=null;return;}
+
+  // Build proposed new order
+  const proposed=[...names];
+  proposed.splice(fromIdx,1);proposed.splice(toIdx,0,dragSrc);
+  const proposedAnchors=proposed.map(n=>avail.find(a=>a.name===n)).filter(Boolean);
+
+  // Validate — check if anyone loses their spot compared to current order
+  const currentConflicts=simulateOrder(avail,day);
+  const newConflicts=simulateOrder(proposedAnchors,day);
+
+  // If the new order causes more conflicts, reject and snap back
+  if(newConflicts.length>currentConflicts.length){
+    const extra=newConflicts.filter(n=>!currentConflicts.includes(n));
+    toastError(`${extra.join(', ')} ${extra.length>1?'don't':'doesn't'} fit in this slot — availability conflict`);
+    dragSrc=null;dragDay=null;
+    renderDayBreakdown(); // snap back
+    return;
+  }
+
+  // Also warn if the dragged anchor itself won't fit but don't block if no net loss
+  if(newConflicts.includes(dragSrc)){
+    toastError(`${dragSrc} may not fit here — check availability`);
+  }
+
+  dayOrders[day]=proposed;dragSrc=null;dragDay=null;renderDayBreakdown();
 }
 
 function resetDayOrder(day){
