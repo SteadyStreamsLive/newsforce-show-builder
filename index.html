@@ -142,10 +142,40 @@
     .action-row{display:flex;justify-content:flex-end;gap:8px;margin-top:10px;flex-wrap:wrap;}
     .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--black);padding:10px 20px;border-radius:4px;font-size:13px;font-weight:700;letter-spacing:0.04em;opacity:0;transition:opacity 0.25s;pointer-events:none;z-index:999;white-space:nowrap;text-transform:uppercase;}
     .toast.show{opacity:1;}
+    .pw-screen{position:fixed;inset:0;background:var(--black);z-index:200;display:flex;align-items:center;justify-content:center;}
+    .pw-box{background:var(--dark);border:1px solid var(--border);border-radius:12px;padding:2.5rem 2rem;width:100%;max-width:340px;text-align:center;}
+    .pw-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;}
+    .pw-sub{font-size:13px;color:var(--muted);margin-bottom:1.5rem;}
+    .pw-input{width:100%;padding:12px 16px;font-size:24px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.3em;text-align:center;background:var(--dark2);border:1px solid var(--border2);border-radius:4px;color:var(--white);outline:none;margin-bottom:8px;}
+    .pw-input:focus{border-color:var(--accent);}
+    .pw-input.error{border-color:var(--red);}
+    .pw-error{font-size:12px;color:var(--red);margin-bottom:12px;min-height:16px;}
+    .pw-btn{width:100%;padding:12px;background:var(--accent);color:var(--black);border:none;border-radius:4px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;transition:opacity 0.15s;}
+    .pw-btn:hover{opacity:0.88;}
+    .day-row-anchors{display:flex;flex-direction:column;gap:6px;flex:1;}
+    .day-anchor-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .day-read-toggle{display:flex;gap:3px;margin-left:auto;}
+    .day-read-opt{padding:2px 8px;border-radius:3px;border:1px solid var(--border2);background:transparent;font-size:10px;font-weight:600;color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;transition:all 0.15s;}
+    .day-read-opt.active{background:rgba(200,240,0,0.15);border-color:rgba(200,240,0,0.4);color:var(--accent);}
     @media(max-width:500px){.topbar{padding:0 1rem;gap:8px;}.logo-sub,.logo-divider{display:none;}.container{padding:1.25rem 1rem;}.producer-top{flex-direction:column;}.accent-btn{width:100%;text-align:center;}}
   </style>
 </head>
 <body>
+<!-- PASSWORD SCREEN -->
+<div class="pw-screen" id="pw-screen" style="display:none;">
+  <div class="pw-box">
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:1.5rem;">
+      <span class="logo-mark">NF</span>
+      <span class="logo-text" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:17px;letter-spacing:0.08em;text-transform:uppercase;">NewsForce</span>
+    </div>
+    <div class="pw-title">Producer Access</div>
+    <div class="pw-sub">Enter your password to continue.</div>
+    <input class="pw-input" type="password" id="pw-input" maxlength="10" placeholder="----" onkeydown="if(event.key==='Enter')checkPassword()" />
+    <div class="pw-error" id="pw-error"></div>
+    <button class="pw-btn" onclick="checkPassword()">Enter</button>
+  </div>
+</div>
+
 <div class="topbar">
   <div class="logo">
     <span class="logo-mark">NF</span>
@@ -155,7 +185,7 @@
   </div>
   <span class="live-badge"><span class="live-dot"></span>Live</span>
   <button class="nav-btn active" onclick="switchView('form',this)">Anchor Form</button>
-  <button class="nav-btn" onclick="switchView('producer',this)">Producer</button>
+  <button class="nav-btn" id="producer-nav-btn" onclick="requestProducer(this)">Producer</button>
 </div>
 
 <div class="container">
@@ -272,7 +302,7 @@
 const SCRIPT_URL="https://script.google.com/a/macros/steadystreamslive.com/s/AKfycbwC4fUr-nHP9ApUwpc5tDomE8ga4Ar7WoNJuWGcNVLuRD1WOKUKX4RCihCeXklvV8Mv/exec";
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const TZ_OFF={ET:0,CT:1,PT:3,GMT:-5,CET:-6,IST:-10.5,AEST:-16};
-let submissions=[],blockCounts={},roster=[],offDays=[],readTypes={};
+let submissions=[],blockCounts={},roster=[],offDays=[],readTypes={},producerUnlocked=false;
 
 function toast(msg,ms=2500){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),ms);}
 async function api(payload){const r=await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify(payload)});return r.json();}
@@ -283,6 +313,30 @@ function switchView(view,btn){
   document.getElementById('view-'+view).classList.add('active');
   btn.classList.add('active');
   if(view==='producer'){buildOffDayGrid();loadRoster();loadSubmissions();}
+}
+
+function requestProducer(btn){
+  if(producerUnlocked){switchView('producer',btn);return;}
+  document.getElementById('pw-screen').style.display='flex';
+  document.getElementById('pw-input').value='';
+  document.getElementById('pw-error').textContent='';
+  document.getElementById('pw-input').classList.remove('error');
+  setTimeout(()=>document.getElementById('pw-input').focus(),100);
+  window._pendingProducerBtn=btn;
+}
+
+function checkPassword(){
+  const val=document.getElementById('pw-input').value;
+  if(val==='0000'){
+    producerUnlocked=true;
+    document.getElementById('pw-screen').style.display='none';
+    switchView('producer',window._pendingProducerBtn);
+  } else {
+    document.getElementById('pw-input').classList.add('error');
+    document.getElementById('pw-error').textContent='Incorrect password. Please try again.';
+    document.getElementById('pw-input').value='';
+    setTimeout(()=>document.getElementById('pw-input').focus(),100);
+  }
 }
 
 function getWeekMonday(){return document.getElementById('week-start').value;}
@@ -369,19 +423,13 @@ async function loadSubmissions(){
 function renderChips(){
   const grid=document.getElementById('submissions-grid');
   if(!submissions.length){grid.innerHTML='<div style="font-size:13px;color:var(--muted);">No submissions yet.</div>';return;}
-  if(!readTypes)readTypes={};
   grid.innerHTML=submissions.map(s=>{
     const init=s.name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
-    if(!readTypes[s.name])readTypes[s.name]='full';
     return `<div class="anchor-chip">
       <div class="avatar">${init}</div>
       <div style="flex:1;min-width:0;">
         <div class="chip-name">${s.name}</div>
         <div class="chip-sub">${s.tz}</div>
-        <div class="read-toggle">
-          <button class="read-opt ${readTypes[s.name]==='full'?'active':''}" onclick="setRead('${s.name}','full',this)">Full 1hr</button>
-          <button class="read-opt ${readTypes[s.name]==='half'?'active':''}" onclick="setRead('${s.name}','half',this)">Half 30m</button>
-        </div>
       </div>
       <div class="chip-actions">
         <span class="green-dot"></span>
@@ -389,12 +437,6 @@ function renderChips(){
       </div>
     </div>`;
   }).join('');
-}
-
-function setRead(name,type,btn){
-  readTypes[name]=type;
-  btn.closest('.read-toggle').querySelectorAll('.read-opt').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
 }
 
 async function deleteSubmission(name){
@@ -405,6 +447,18 @@ async function deleteSubmission(name){
     if(r.success){submissions=submissions.filter(s=>s.name!==name);renderChips();renderMissing();renderDayBreakdown();toast('Removed.');}
     else toast('Error: '+r.error);
   }catch(e){toast('Connection error.');}
+}
+
+function setDayRead(anchorName,day,type,btn){
+  if(!readTypes[anchorName])readTypes[anchorName]={};
+  readTypes[anchorName][day]=type;
+  btn.closest('.day-read-toggle').querySelectorAll('.day-read-opt').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function getDayRead(anchorName,day){
+  if(readTypes[anchorName]&&readTypes[anchorName][day])return readTypes[anchorName][day];
+  return 'full';
 }
 
 function renderDayBreakdown(){
@@ -420,8 +474,20 @@ function renderDayBreakdown(){
     const avail=submissions.filter(a=>getWindows(a,day));
     const count=avail.length,cc=count>=3?'ok':count>=1?'warn':'bad';
     const label=count===0?'None':count===1?'1 anchor':`${count} anchors`;
-    const pills=avail.length?avail.map(a=>`<span class="day-anchor-pill">${a.name}</span>`).join(''):`<span class="day-none">No one available</span>`;
-    return `<div class="day-row"><div class="day-row-name">${day.slice(0,3)}</div><div class="day-row-date">${ds}</div><div class="day-anchors">${pills}</div><div class="day-count ${cc}">${label}</div></div>`;
+    if(!avail.length){
+      return `<div class="day-row"><div class="day-row-name">${day.slice(0,3)}</div><div class="day-row-date">${ds}</div><div class="day-anchors"><span class="day-none">No one available</span></div><div class="day-count bad">None</div></div>`;
+    }
+    const anchorRows=avail.map(a=>{
+      const rt=getDayRead(a.name,day);
+      return `<div class="day-anchor-row">
+        <span class="day-anchor-pill">${a.name}</span>
+        <div class="day-read-toggle">
+          <button class="day-read-opt ${rt==='full'?'active':''}" onclick="setDayRead('${a.name}','${day}','full',this)">Full 1hr</button>
+          <button class="day-read-opt ${rt==='half'?'active':''}" onclick="setDayRead('${a.name}','${day}','half',this)">Half 30m</button>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="day-row"><div class="day-row-name">${day.slice(0,3)}</div><div class="day-row-date">${ds}</div><div class="day-row-anchors">${anchorRows}</div><div class="day-count ${cc}">${label}</div></div>`;
   }).join('');
 }
 
@@ -582,7 +648,7 @@ function generateSchedule(){
 
     avail.forEach((anchor,idx)=>{
       const wins=getWindows(anchor,day);
-      const isHalf=readTypes[anchor.name]==='half';
+      const isHalf=getDayRead(anchor.name,day)==='half';
       const READ=isHalf?30:60,PREP=30,TOT=PREP+READ;
       let ok=false;
       for(const w of wins){
