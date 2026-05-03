@@ -949,23 +949,26 @@ function generateSchedule(){
           cur=re;
 
           // Only add break if there are more anchors that can actually be placed after this one
+          // Find the next anchor that can actually fit after current cursor
           const remainingAnchors=avail.slice(idx+1);
-          const anyFitAfter=remainingAnchors.some(nextAnchor=>{
+          let nextFittingAnchor=null;
+          for(const nextAnchor of remainingAnchors){
             const nextWins=getWindows(nextAnchor,day);
-            if(!nextWins)return false;
+            if(!nextWins)continue;
             const isHalfNext=getDayRead(nextAnchor.name,day)==='half';
             const nextRead=isHalfNext?30:60;
             for(const nw of nextWins){
               const ns=Math.max(cur,nw.start);
-              if(ns+PREP+nextRead<=nw.end&&ns+PREP+nextRead<=19*60)return true;
+              if(ns+PREP+nextRead<=nw.end&&ns+PREP+nextRead<=19*60){
+                nextFittingAnchor=nextAnchor;break;
+              }
             }
-            return false;
-          });
-          if(anyFitAfter){
-            const nextAnchor=avail[idx+1];
-            const nextWins=getWindows(nextAnchor,day);
+            if(nextFittingAnchor)break;
+          }
+          if(nextFittingAnchor){
+            const nextWins=getWindows(nextFittingAnchor,day);
             let nextStart=19*60;
-            if(nextWins){for(const nw of nextWins){const ns=Math.max(cur,nw.start);if(ns+PREP+(getDayRead(nextAnchor.name,day)==='half'?30:60)<=nw.end){nextStart=ns;break;}}}
+            if(nextWins){for(const nw of nextWins){const ns=Math.max(cur,nw.start);if(ns+PREP+(getDayRead(nextFittingAnchor.name,day)==='half'?30:60)<=nw.end){nextStart=ns;break;}}}
             const gap=nextStart-cur;
             if(gap>=45){
               out+=`Ops Break / SOT Check ${fmt(cur)} - ${fmt(cur+45)} ET (${fmtPT(cur)} - ${fmtPT(cur+45)} PT)\n`;
