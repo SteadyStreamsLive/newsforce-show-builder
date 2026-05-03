@@ -324,6 +324,7 @@
     </div>
     <div class="action-row" id="action-row" style="display:none;">
       <button class="ghost-btn" onclick="copySchedule()">Copy</button>
+      <button class="ghost-btn" onclick="downloadTXT()">Download TXT</button>
       <button class="ghost-btn" onclick="saveToSheet()">Save to Sheet</button>
       <button class="ghost-btn" onclick="showICSMenu()">Download ICS</button>
       <button class="accent-btn" id="cal-btn" onclick="pushToCalendar()">Push to Calendar</button>
@@ -1117,6 +1118,20 @@ function generateSchedule(){
 }
 
 function copySchedule(){if(window._sched)navigator.clipboard.writeText(window._sched).then(()=>toast('Copied!'));}
+
+function downloadTXT(){
+  if(!window._sched){toast('Generate a schedule first.');return;}
+  const wm=getWeekMonday();
+  const filename=`NewsForce_Schedule_${wm||'week'}.txt`;
+  const blob=new Blob([window._sched],{type:'text/plain;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Schedule downloaded!');
+}
 async function saveToSheet(){const wm=getWeekMonday();if(!wm||!window._sched)return;try{const r=await api({action:'saveSchedule',weekMonday:wm,scheduleText:window._sched});toast(r.success?'Saved to Sheet!':'Error: '+r.error);}catch(e){toast('Connection error.');}}
 
 function formatICSDate(isoStr){
