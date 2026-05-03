@@ -480,7 +480,9 @@ async function loadSubmissions(){
   buildOffDayGrid();
   try{
     const res=await api({action:'getSubmissions',weekMonday:wm});
-    submissions=res.submissions||[];renderChips();renderMissing();renderDayBreakdown();
+    submissions=res.submissions||[];renderChips();renderMissing();
+    await loadSettings();
+    renderDayBreakdown();
   }catch(e){grid.innerHTML='<div style="font-size:13px;color:var(--muted);">Connection error.</div>';}
 }
 
