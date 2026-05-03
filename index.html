@@ -948,12 +948,24 @@ function generateSchedule(){
           window._calEvents.push({title:anchor.name+' - '+(isHalf?'Half Read':'Read'),start:toISO(pe),end:toISO(re),description:'Live to Tape Read'});
           cur=re;
 
-          if(idx<avail.length-1){
-            // Check gap to next anchor's earliest window
+          // Only add break if there are more anchors that can actually be placed after this one
+          const remainingAnchors=avail.slice(idx+1);
+          const anyFitAfter=remainingAnchors.some(nextAnchor=>{
+            const nextWins=getWindows(nextAnchor,day);
+            if(!nextWins)return false;
+            const isHalfNext=getDayRead(nextAnchor.name,day)==='half';
+            const nextRead=isHalfNext?30:60;
+            for(const nw of nextWins){
+              const ns=Math.max(cur,nw.start);
+              if(ns+PREP+nextRead<=nw.end&&ns+PREP+nextRead<=19*60)return true;
+            }
+            return false;
+          });
+          if(anyFitAfter){
             const nextAnchor=avail[idx+1];
             const nextWins=getWindows(nextAnchor,day);
             let nextStart=19*60;
-            if(nextWins){for(const nw of nextWins){const ns=Math.max(cur,nw.start);if(ns+PREP+(readTypes[nextAnchor.name]==='half'?30:60)<=nw.end){nextStart=ns;break;}}}
+            if(nextWins){for(const nw of nextWins){const ns=Math.max(cur,nw.start);if(ns+PREP+(getDayRead(nextAnchor.name,day)==='half'?30:60)<=nw.end){nextStart=ns;break;}}}
             const gap=nextStart-cur;
             if(gap>=45){
               out+=`Ops Break / SOT Check ${fmt(cur)} - ${fmt(cur+45)} ET (${fmtPT(cur)} - ${fmtPT(cur+45)} PT)\n`;
