@@ -981,20 +981,27 @@ function getWindows(anchor,day){
 }
 
 async function saveSettings(){
-  const wm=getWeekMonday(); if(!wm) return;
+  const wm=getWeekMonday(); if(!wm){console.log('saveSettings: no week set');return;}
   const settings={
     offDays: offDays,
     dayOrders: Object.fromEntries(Object.entries(dayOrders).map(([k,v])=>[k,v])),
     readTypes: Object.fromEntries(Object.entries(readTypes).map(([k,v])=>[k,typeof v==='object'?Object.fromEntries(Object.entries(v)):v])),
     dayExclusions: Object.fromEntries(Object.entries(dayExclusions).map(([k,v])=>[k,[...v]]))
   };
-  try{ await api({action:'saveSettings',weekMonday:wm,settings}); }catch(e){ console.log('Settings save error',e); }
+  console.log('Saving settings for week:', wm, settings);
+  try{
+    const res=await api({action:'saveSettings',weekMonday:wm,settings});
+    console.log('Save result:', res);
+    if(res.success) toast('Settings saved',1000);
+  }catch(e){ console.log('Settings save error',e); toast('Settings save failed',2000); }
 }
 
 async function loadSettings(){
-  const wm=getWeekMonday(); if(!wm) return;
+  const wm=getWeekMonday(); if(!wm){console.log('loadSettings: no week set');return;}
+  console.log('Loading settings for week:', wm);
   try{
     const res=await api({action:'getSettings',weekMonday:wm});
+    console.log('Load result:', res);
     if(res.success&&res.settings){
       const s=res.settings;
       if(s.offDays) offDays=s.offDays;
