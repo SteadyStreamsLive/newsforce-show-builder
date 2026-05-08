@@ -1153,10 +1153,10 @@ function generateSchedule(){
           window._calEvents.push({title:anchor.name+' - LIVE',start:toISO(LIVE_START),end:toISO(LIVE_START+READ),description:'LIVE Broadcast',color:'tomato'});
           liveEnd=LIVE_START+READ;
         } else {
-          // Subsequent live anchors — tech check overlaps with previous anchor's live
-          // Tech check starts when previous anchor goes live
-          const myTechStart=LIVE_START+(li-1)*READ;
+          // Subsequent anchors — tech check starts 30 min before their live slot
+          // Their live starts when previous anchor finishes
           const myLiveStart=liveEnd;
+          const myTechStart=myLiveStart-30; // 30 min before live (overlaps previous anchor's live)
           const myLiveEnd=myLiveStart+READ;
           out+=`\n${anchor.name} | Live Tech Check: ${fmt(myTechStart)} - ${fmt(myLiveStart)} ET (${fmtPT(myTechStart)} - ${fmtPT(myLiveStart)} PT)\n`;
           out+=`${anchor.name} | LIVE: ${fmt(myLiveStart)} - ${fmt(myLiveEnd)} ET (${fmtPT(myLiveStart)} - ${fmtPT(myLiveEnd)} PT)\n`;
