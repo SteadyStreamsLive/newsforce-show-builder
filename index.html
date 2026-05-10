@@ -542,15 +542,24 @@ function isExcluded(anchorName,day){
 function toggleLive(anchorName,day,btn){
   if(!liveAnchors[day])liveAnchors[day]=new Set();
   if(liveAnchors[day].has(anchorName)){
+    // Turning off live
     liveAnchors[day].delete(anchorName);
     btn.classList.remove('active');
-  } else {
-    liveAnchors[day].add(anchorName);
-    btn.classList.add('active');
-    // If set to live, make sure they're not set to Off
-    if(readTypes[anchorName]&&readTypes[anchorName][day]==='off'){
-      readTypes[anchorName][day]='full';
-    }
+    saveSettings();
+    renderDayBreakdown();
+    return;
+  }
+  // Check availability before setting live
+  const anchor=submissions.find(a=>a.name===anchorName);
+  if(!anchor){toastError(anchorName+' has no submission for this week');return;}
+  const wins=getWindows(anchor,day);
+  if(!wins){toastError(anchorName+' is not available on '+day+' — cannot set to LIVE');return;}
+  // All good — set to live
+  liveAnchors[day].add(anchorName);
+  btn.classList.add('active');
+  // Make sure they're not set to Off
+  if(readTypes[anchorName]&&readTypes[anchorName][day]==='off'){
+    readTypes[anchorName][day]='full';
   }
   saveSettings();
   renderDayBreakdown();
