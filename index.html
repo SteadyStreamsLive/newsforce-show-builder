@@ -1029,7 +1029,7 @@ function fmtPT(m){return fmt(m-180);}
 
 function getWindows(anchor,day){
   const blocks=anchor.days[day];if(!blocks||!blocks.length||blocks[0].type==='off')return null;
-  let wins=[{start:11*60,end:19*60}];
+  let wins=[{start:getScheduleStart()+60,end:19*60}];
   blocks.forEach(b=>{
     if(b.type==='all')return;
     if(b.type==='before'){const c=toMins(toET(b.before,anchor.tz));wins=wins.map(w=>({...w,end:Math.min(w.end,c)})).filter(w=>w.end>w.start);}
