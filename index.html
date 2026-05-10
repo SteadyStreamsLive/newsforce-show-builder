@@ -554,6 +554,15 @@ function toggleLive(anchorName,day,btn){
   if(!anchor){toastError(anchorName+' has no submission for this week');return;}
   const wins=getWindows(anchor,day);
   if(!wins){toastError(anchorName+' is not available on '+day+' — cannot set to LIVE');return;}
+  // Check they are available at the live time (5:10 PM ET = 1030 mins)
+  // Tech check starts at 4:30 PM (1110 mins), live at 5:10 PM (1030 mins)
+  const LIVE_TIME=17*60+10; // 5:10 PM ET in minutes
+  const TECH_TIME=16*60+30; // 4:30 PM ET
+  const availableAtLive=wins.some(w=>w.start<=TECH_TIME&&w.end>=LIVE_TIME+30);
+  if(!availableAtLive){
+    toastError(anchorName+' is not available at 5:10 PM ET — cannot set to LIVE');
+    return;
+  }
   // All good — set to live
   liveAnchors[day].add(anchorName);
   btn.classList.add('active');
