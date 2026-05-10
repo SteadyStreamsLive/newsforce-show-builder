@@ -298,20 +298,6 @@
       <input type="date" id="week-start" onchange="loadSubmissions()" />
       <button class="ghost-btn" onclick="loadSubmissions()">Refresh</button>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-top:8px;margin-bottom:4px;flex-wrap:wrap;">
-      <label style="font-size:12px;color:var(--muted);font-weight:500;">Schedule start</label>
-      <select id="schedule-start-time" style="padding:6px 10px;font-size:13px;font-family:'Barlow',sans-serif;background:var(--dark2);border:1px solid var(--border2);border-radius:4px;color:var(--white);outline:none;" onchange="saveSettings()">
-        <option value="11:00">11:00 AM (default)</option>
-        <option value="10:30">10:30 AM (30min early)</option>
-        <option value="10:00">10:00 AM (1hr early)</option>
-        <option value="09:30">9:30 AM (1.5hrs early)</option>
-        <option value="09:00">9:00 AM (2hrs early)</option>
-        <option value="11:30">11:30 AM (30min late)</option>
-        <option value="12:00">12:00 PM (1hr late)</option>
-      </select>
-      <span style="font-size:11px;color:var(--muted);">Shifts ops prep and anchor slots</span>
-    </div>
-
     <div class="section-label">Off days this week</div>
     <div class="offday-grid" id="offday-grid"></div>
 
@@ -362,7 +348,7 @@
 const SCRIPT_URL="https://script.google.com/a/macros/steadystreamslive.com/s/AKfycbwC4fUr-nHP9ApUwpc5tDomE8ga4Ar7WoNJuWGcNVLuRD1WOKUKX4RCihCeXklvV8Mv/exec";
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const TZ_OFF={ET:0,CT:1,MT:2,PT:3,GMT:-5,CET:-6,IST:-10.5,AEST:-16};
-let submissions=[],blockCounts={},roster=[],offDays=[],readTypes={},dayOrders={},dayExclusions={},liveAnchors={},producerUnlocked=false;
+let submissions=[],blockCounts={},roster=[],offDays=[],readTypes={},dayOrders={},dayExclusions={},liveAnchors={},dayScheduleStart={},producerUnlocked=false;
 
 function toast(msg,ms=2500){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),ms);}
 async function api(payload){const r=await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify(payload)});return r.json();}
@@ -638,7 +624,7 @@ function getOrderedAvail(day){
   });
 
   function simulateDay(orderedAnchors){
-    const schedStart=getScheduleStart()+60;
+    const schedStart=getScheduleStart(day)+60;
     let cur=schedStart, fitted=0, endTime=schedStart;
     for(let i=0;i<orderedAnchors.length;i++){
       const anchor=orderedAnchors[i];
@@ -684,8 +670,8 @@ function getOrderedAvail(day){
       const aEu=EU_TZ.includes(a.tz)?0:1, bEu=EU_TZ.includes(b.tz)?0:1;
       if(aEu!==bEu) return aEu-bEu;
       const aw=getWindows(a,day),bw=getWindows(b,day);
-      const aStart=aw?Math.max(getScheduleStart()+60,aw[0].start):19*60;
-      const bStart=bw?Math.max(getScheduleStart()+60,bw[0].start):19*60;
+      const aStart=aw?Math.max(getScheduleStart(day)+60,aw[0].start):19*60;
+      const bStart=bw?Math.max(getScheduleStart(day)+60,bw[0].start):19*60;
       return aStart-bStart;
     });
   }
@@ -750,7 +736,7 @@ function onDragOver(e,day,name){if(dragDay!==day||dragSrc===name)return;e.preven
 function onDragLeave(e){e.currentTarget.classList.remove('drag-over');}
 function simulateOrder(orderedAnchors,day){
   // Strictly simulate the schedule and return list of anchor names that cannot be placed
-  let cur=getScheduleStart()+60;const conflicts=[]; // start after ops prep
+  let cur=getScheduleStart(day)+60;const conflicts=[]; // start after ops prep
   for(let i=0;i<orderedAnchors.length;i++){
     const anchor=orderedAnchors[i];
     const wins=getWindows(anchor,day);
@@ -873,10 +859,19 @@ function renderDayBreakdown(){
       </div>`;
     }).join('');
     return `<div class="day-row" style="flex-direction:column;align-items:stretch;">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:${avail.length?'6px':'0'};">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:${avail.length?'6px':'0'};flex-wrap:wrap;">
         <div class="day-row-name">${day.slice(0,3)}</div>
         <div class="day-row-date">${ds}</div>
         ${dayOrders[day]?`<button onclick="resetDayOrder('${day}')" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid var(--amber);background:transparent;color:var(--amber);cursor:pointer;font-family:'Barlow',sans-serif;">Manual — reset to auto</button>`:'<span style="font-size:10px;color:var(--muted);">Auto-ordered</span>'}
+        <select onchange="setDayScheduleStart('${day}',this.value)" style="font-size:10px;padding:2px 6px;border-radius:3px;border:1px solid var(--border2);background:var(--dark2);color:var(--muted);font-family:'Barlow',sans-serif;cursor:pointer;">
+          <option value="11:00" ${!dayScheduleStart['${day}']||dayScheduleStart['${day}']==='11:00'?'selected':''}>11:00 AM</option>
+          <option value="10:30" ${dayScheduleStart['${day}']==='10:30'?'selected':''}>10:30 AM</option>
+          <option value="10:00" ${dayScheduleStart['${day}']==='10:00'?'selected':''}>10:00 AM</option>
+          <option value="09:30" ${dayScheduleStart['${day}']==='09:30'?'selected':''}>9:30 AM</option>
+          <option value="09:00" ${dayScheduleStart['${day}']==='09:00'?'selected':''}>9:00 AM</option>
+          <option value="11:30" ${dayScheduleStart['${day}']==='11:30'?'selected':''}>11:30 AM</option>
+          <option value="12:00" ${dayScheduleStart['${day}']==='12:00'?'selected':''}>12:00 PM</option>
+        </select>
         <div class="day-count ${cc}" style="margin-left:auto;">${label}</div>
       </div>
       <div class="day-row-anchors">${anchorRows}</div>
@@ -1029,7 +1024,7 @@ function fmtPT(m){return fmt(m-180);}
 
 function getWindows(anchor,day){
   const blocks=anchor.days[day];if(!blocks||!blocks.length||blocks[0].type==='off')return null;
-  const schedStart=(typeof getScheduleStart==='function')?getScheduleStart():11*60;
+  const schedStart=getScheduleStart(day);
   let wins=[{start:schedStart,end:19*60}];
   blocks.forEach(b=>{
     if(b.type==='all')return;
@@ -1043,7 +1038,7 @@ async function saveSettings(){
   const wm=getWeekMonday(); if(!wm){console.log('saveSettings: no week set');return;}
   const settings={
     offDays: offDays,
-    scheduleStart: document.getElementById('schedule-start-time')?.value||'11:00',
+    dayScheduleStart: dayScheduleStart,
     dayOrders: Object.fromEntries(Object.entries(dayOrders).map(([k,v])=>[k,v])),
     readTypes: Object.fromEntries(Object.entries(readTypes).map(([k,v])=>[k,typeof v==='object'?Object.fromEntries(Object.entries(v)):v])),
     dayExclusions: Object.fromEntries(Object.entries(dayExclusions).map(([k,v])=>[k,[...v]]))
@@ -1081,22 +1076,27 @@ async function loadSettings(){
           liveAnchors[k]=new Set(v);
         });
       }
-      if(s.scheduleStart){
-        const sel=document.getElementById('schedule-start-time');
-        if(sel)sel.value=s.scheduleStart;
-      }
+      if(s.dayScheduleStart){Object.assign(dayScheduleStart,s.dayScheduleStart);}
       buildOffDayGrid();
       renderDayBreakdown();
     }
   }catch(e){ console.log('Settings load error',e); }
 }
 
-function getScheduleStart(){
-  const sel=document.getElementById('schedule-start-time');
-  if(!sel)return 11*60;
-  const val=sel.value||'11:00';
-  const[h,m]=val.split(':').map(Number);
-  return h*60+m;
+function getScheduleStart(day){
+  // Per-day override
+  if(day&&dayScheduleStart[day]){
+    const[h,m]=dayScheduleStart[day].split(':').map(Number);
+    return h*60+m;
+  }
+  return 11*60; // default 11:00 AM
+}
+
+function setDayScheduleStart(day,val){
+  if(val==='11:00'){delete dayScheduleStart[day];}
+  else{dayScheduleStart[day]=val;}
+  saveSettings();
+  renderDayBreakdown();
 }
 
 function generateSchedule(){
@@ -1114,7 +1114,7 @@ function generateSchedule(){
     if(offDays.includes(day)){out+=`${day.toUpperCase()} ${ds}\nOFF\n\n`;return;}
 
     out+=`${day.toUpperCase()} ${ds}\n`;
-    const SCHED_START=getScheduleStart(),OPS_PREP_END_TIME=SCHED_START+60;
+    const SCHED_START=getScheduleStart(day),OPS_PREP_END_TIME=SCHED_START+60;
     out+=`Ops Prep ${fmt(SCHED_START)} - ${fmt(OPS_PREP_END_TIME)} ET (${fmtPT(SCHED_START)} - ${fmtPT(OPS_PREP_END_TIME)} PT)\n`;
     window._calEvents.push({title:'Ops Prep',start:toISO(SCHED_START),end:toISO(OPS_PREP_END_TIME),description:'NewsForce Ops Prep',color:'lavender'});
 
