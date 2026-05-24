@@ -1245,6 +1245,7 @@ function generateSchedule(){
         if(li===0){
           // First live anchor — tech check at 4:30, countdown at 5:00, live at 5:10
           out+=`\n${anchor.name} | Live Tech Check: ${fmt(TECH_START)} - ${fmt(COUNTDOWN_START)} ET (${fmtPT(TECH_START)} - ${fmtPT(COUNTDOWN_START)} PT)\n`;
+          out+=`Live Stream Start: ${fmt(COUNTDOWN_START)} ET (${fmtPT(COUNTDOWN_START)} PT)\n`;
           out+=`Countdown Timer: ${fmt(COUNTDOWN_START)} - ${fmt(LIVE_START)} ET (${fmtPT(COUNTDOWN_START)} - ${fmtPT(LIVE_START)} PT)\n`;
           out+=`${anchor.name} | LIVE: ${fmt(LIVE_START)} - ${fmt(LIVE_START+READ)} ET (${fmtPT(LIVE_START)} - ${fmtPT(LIVE_START+READ)} PT)\n`;
           window._calEvents.push({title:anchor.name+' - Live Tech Check',start:toISO(TECH_START),end:toISO(COUNTDOWN_START),description:'Live Tech Check',color:'radicchio'});
