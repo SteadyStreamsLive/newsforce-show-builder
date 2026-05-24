@@ -374,7 +374,7 @@ function checkAppPassword(){
 const SCRIPT_URL="https://script.google.com/a/macros/steadystreamslive.com/s/AKfycbwC4fUr-nHP9ApUwpc5tDomE8ga4Ar7WoNJuWGcNVLuRD1WOKUKX4RCihCeXklvV8Mv/exec";
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const TZ_OFF={ET:0,CT:1,MT:2,PT:3,GMT:-5,CET:-6,IST:-10.5,AEST:-16};
-let submissions=[],blockCounts={},roster=[],offDays=[],readTypes={},dayOrders={},dayExclusions={},liveAnchors={},dayScheduleStart={},producerUnlocked=false;
+let submissions=[],blockCounts={},roster=[],offDays=[],readTypes={},dayOrders={},dayExclusions={},liveAnchors={},dayScheduleStart={},liveStartTime='17:00',producerUnlocked=false;
 
 function toast(msg,ms=2500){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),ms);}
 async function api(payload){const r=await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify(payload)});return r.json();}
@@ -1059,6 +1059,7 @@ async function saveSettings(){
   const settings={
     offDays: offDays,
     dayScheduleStart: dayScheduleStart,
+    liveStartTime: liveStartTime,
     dayOrders: Object.fromEntries(Object.entries(dayOrders).map(([k,v])=>[k,v])),
     readTypes: Object.fromEntries(Object.entries(readTypes).map(([k,v])=>[k,typeof v==='object'?Object.fromEntries(Object.entries(v)):v])),
     dayExclusions: Object.fromEntries(Object.entries(dayExclusions).map(([k,v])=>[k,[...v]]))
@@ -1097,6 +1098,11 @@ async function loadSettings(){
         });
       }
       if(s.dayScheduleStart){Object.assign(dayScheduleStart,s.dayScheduleStart);}
+      if(s.liveStartTime){
+        liveStartTime=s.liveStartTime;
+        const sel=document.getElementById('live-start-time');
+        if(sel)sel.value=s.liveStartTime;
+      }
       buildOffDayGrid();
       renderDayBreakdown();
     }
@@ -1201,9 +1207,11 @@ function generateSchedule(){
 
     // LIVE ANCHORS — tech check at 4:30 PM, countdown at 5:00 PM, live at 5:10 PM
     if(liveAvailAnchors.length){
-      const TECH_START=16*60+30; // 4:30 PM
-      const COUNTDOWN_START=17*60; // 5:00 PM
-      const LIVE_START=17*60+10; // 5:10 PM
+      const [lh,lm]=liveStartTime.split(':').map(Number);
+      const LIVE_BASE=lh*60+lm; // selected go-live time
+      const TECH_START=LIVE_BASE-30; // 30 min tech check before live
+      const COUNTDOWN_START=LIVE_BASE; // countdown at go-live time
+      const LIVE_START=LIVE_BASE+10; // actual live 10 min after countdown
       let liveEnd=LIVE_START;
 
       liveAvailAnchors.forEach((anchor,li)=>{
@@ -1239,8 +1247,10 @@ function generateSchedule(){
 
     } else {
       // No live anchors — Playback at 5:00 PM after tape schedule
-      out+=`\nPlayback ${fmt(17*60)} - ${fmt(17*60+10)} ET (${fmtPT(17*60)} - ${fmtPT(17*60+10)} PT)\n`;
-      window._calEvents.push({title:'Playback',start:toISO(17*60),end:toISO(17*60+10),description:'LiveStream Countdown / Playback Start',color:'grape'});
+      const [plh,plm]=liveStartTime.split(':').map(Number);
+      const PB_START=plh*60+plm;
+      out+=`\nPlayback ${fmt(PB_START)} - ${fmt(PB_START+10)} ET (${fmtPT(PB_START)} - ${fmtPT(PB_START+10)} PT)\n`;
+      window._calEvents.push({title:'Playback',start:toISO(PB_START),end:toISO(PB_START+10),description:'LiveStream Countdown / Playback Start',color:'grape'});
     }
 
     out+='\n';
