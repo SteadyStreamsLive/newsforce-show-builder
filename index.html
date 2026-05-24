@@ -1266,14 +1266,14 @@ function generateSchedule(){
       });
 
       // Playback follows after last live anchor
-      out+=`\nPlayback ${fmt(liveEnd)} - ${fmt(liveEnd+10)} ET (${fmtPT(liveEnd)} - ${fmtPT(liveEnd+10)} PT)\n`;
+      out+=`\nPlayback Start ${fmt(liveEnd)} ET (${fmtPT(liveEnd)} PT)\n`;
       window._calEvents.push({title:'Playback',start:toISO(liveEnd),end:toISO(liveEnd+10),description:'LiveStream Countdown / Playback Start',color:'grape'});
 
     } else {
       // No live anchors — Playback at 5:00 PM after tape schedule
       const [plh,plm]=liveStartTime.split(':').map(Number);
       const PB_START=plh*60+plm;
-      out+=`\nPlayback ${fmt(PB_START)} - ${fmt(PB_START+10)} ET (${fmtPT(PB_START)} - ${fmtPT(PB_START+10)} PT)\n`;
+      out+=`\nPlayback Start ${fmt(PB_START)} ET (${fmtPT(PB_START)} PT)\n`;
       window._calEvents.push({title:'Playback',start:toISO(PB_START),end:toISO(PB_START+10),description:'LiveStream Countdown / Playback Start',color:'grape'});
     }
 
