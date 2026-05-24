@@ -1266,7 +1266,7 @@ function generateSchedule(){
       });
 
       // Playback follows after last live anchor
-      out+=`\nPlayback Start ${fmt(liveEnd)} ET (${fmtPT(liveEnd)} PT)\n`;
+      out+=`\nPlayback Start ${fmt(liveEnd)} ET (${fmtPT(liveEnd)} PT) — estimated, determined by length of live broadcast\n`;
       window._calEvents.push({title:'Playback',start:toISO(liveEnd),end:toISO(liveEnd+10),description:'LiveStream Countdown / Playback Start',color:'grape'});
 
     } else {
