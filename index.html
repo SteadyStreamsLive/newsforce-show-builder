@@ -160,6 +160,9 @@
     .day-read-opt{padding:2px 8px;border-radius:3px;border:1px solid var(--border2);background:transparent;font-size:10px;font-weight:600;color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;transition:all 0.15s;}
     .day-read-opt.active{background:rgba(200,240,0,0.15);border-color:rgba(200,240,0,0.4);color:var(--accent);}
     .day-read-off.active{background:rgba(255,59,48,0.15)!important;border-color:rgba(255,59,48,0.4)!important;color:var(--red)!important;}
+    .add-read-select{padding:2px 6px;border-radius:3px;border:1px solid var(--border2);background:transparent;font-size:10px;font-weight:600;color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;transition:all 0.15s;outline:none;}
+    .add-read-select.active{background:rgba(10,132,255,0.15);border-color:rgba(10,132,255,0.4);color:#0a84ff;}
+    .add-read-select option{background:var(--dark2);}
     .live-btn{padding:2px 8px;border-radius:3px;border:1px solid var(--border2);background:transparent;font-size:10px;font-weight:700;color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;transition:all 0.15s;letter-spacing:0.05em;}
     .live-btn.active{background:rgba(255,159,10,0.15);border-color:rgba(255,159,10,0.4);color:var(--amber);}
     .live-btn:hover:not(.active){background:var(--dark3);color:var(--white);}
@@ -398,7 +401,7 @@ function checkAppPassword(){
 const SCRIPT_URL="https://script.google.com/a/macros/steadystreamslive.com/s/AKfycbwC4fUr-nHP9ApUwpc5tDomE8ga4Ar7WoNJuWGcNVLuRD1WOKUKX4RCihCeXklvV8Mv/exec";
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const TZ_OFF={ET:0,CT:1,MT:2,PT:3,GMT:-5,CET:-6,IST:-10.5,AEST:-16};
-let submissions=[],blockCounts={},roster=[],offDays=[],readTypes={},dayOrders={},dayExclusions={},liveAnchors={},dayScheduleStart={},liveStartTime='17:00',producerUnlocked=false;
+let submissions=[],blockCounts={},roster=[],offDays=[],readTypes={},additionalReads={},dayOrders={},dayExclusions={},liveAnchors={},dayScheduleStart={},liveStartTime='17:00',producerUnlocked=false;
 
 function toast(msg,ms=2500){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),ms);}
 async function api(payload){const r=await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify(payload)});return r.json();}
@@ -586,6 +589,17 @@ function restoreAnchorToDay(anchorName,day){
 
 function isExcluded(anchorName,day){
   return dayExclusions[day]&&dayExclusions[day].has(anchorName);
+}
+
+function setAdditionalRead(anchorName,day,val){
+  if(!additionalReads[anchorName])additionalReads[anchorName]={};
+  additionalReads[anchorName][day]=val;
+  saveSettings();
+  renderDayBreakdown();
+}
+
+function getAdditionalRead(anchorName,day){
+  return parseInt(additionalReads[anchorName]?.[day]||'0');
 }
 
 function toggleLive(anchorName,day,btn){
@@ -792,7 +806,7 @@ function simulateOrder(orderedAnchors,day){
     const wins=getWindows(anchor,day);
     if(!wins){conflicts.push(anchor.name);continue;}
     const isHalf=getDayRead(anchor.name,day)==='half';
-    const READ=isHalf?30:60,PREP=30,TOT=PREP+READ;
+    const READ=isHalf?30:60,PREP=30,addMin=getAdditionalRead(anchor.name,day),TOT=PREP+READ+addMin;
     // Check break needed before this anchor
     const BRK=i>0?30:0;
     const startFrom=cur;
@@ -904,6 +918,12 @@ function renderDayBreakdown(){
           <button class="day-read-opt ${rt==='half'?'active':''}" onclick="setDayRead('${a.name}','${day}','half',this)">Half 30m</button>
           <button class="day-read-opt day-read-off ${rt==='off'?'active':''}" onclick="setDayRead('${a.name}','${day}','off',this)">Off</button>
           <button class="live-btn ${isLive?'active':''}" onclick="toggleLive('${a.name}','${day}',this)">LIVE</button>
+          <select class="add-read-select ${(additionalReads[a.name]&&additionalReads[a.name][day]&&additionalReads[a.name][day]!=='0')?'active':''}" onchange="setAdditionalRead('${a.name}','${day}',this.value)" title="Additional Read">
+            <option value="0" ${(!additionalReads[a.name]||!additionalReads[a.name][day]||additionalReads[a.name][day]==='0')?'selected':''}>+Add</option>
+            <option value="15" ${additionalReads[a.name]&&additionalReads[a.name][day]==='15'?'selected':''}>+15m</option>
+            <option value="30" ${additionalReads[a.name]&&additionalReads[a.name][day]==='30'?'selected':''}>+30m</option>
+            <option value="45" ${additionalReads[a.name]&&additionalReads[a.name][day]==='45'?'selected':''}>+45m</option>
+          </select>
         </div>
         <div class="detail-panel" id="detail-${day}-${safeId}">${detailHTML}</div>
       </div>`;
@@ -1121,6 +1141,7 @@ async function loadSettings(){
           liveAnchors[k]=new Set(v);
         });
       }
+      if(s.additionalReads){Object.assign(additionalReads,s.additionalReads);}
       if(s.dayScheduleStart){Object.assign(dayScheduleStart,s.dayScheduleStart);}
       if(s.liveStartTime){
         liveStartTime=s.liveStartTime;
@@ -1177,7 +1198,7 @@ function generateSchedule(){
     avail.forEach((anchor,idx)=>{
       const wins=getWindows(anchor,day);
       const isHalf=getDayRead(anchor.name,day)==='half';
-      const READ=isHalf?30:60,PREP=30,TOT=PREP+READ;
+      const READ=isHalf?30:60,PREP=30,addMin=getAdditionalRead(anchor.name,day),TOT=PREP+READ+addMin;
       let ok=false;
       for(const w of wins){
         const ss=Math.max(cur,w.start);
