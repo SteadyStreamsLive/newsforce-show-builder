@@ -518,16 +518,26 @@ async function saveRosterToSheet(){
   try{await api({action:'saveRoster',roster});}catch(e){console.log('Roster save error',e);}
 }
 
-function addToRoster(){
+async function addToRoster(){
   const inp=document.getElementById('roster-input'),name=inp.value.trim();
   if(!name||roster.includes(name)){inp.value='';return;}
   roster.push(name);inp.value='';
-  renderRoster();renderMissing();renderDayBreakdown();saveRosterToSheet();
+  renderRoster();renderMissing();renderDayBreakdown();
+  try{
+    const r=await api({action:'saveRoster',roster});
+    if(r.success)toast('Roster updated.',1500);
+    else toast('Error saving roster: '+r.error);
+  }catch(e){toast('Connection error saving roster.');}
 }
 
-function removeFromRoster(name){
+async function removeFromRoster(name){
   roster=roster.filter(n=>n!==name);
-  renderRoster();renderMissing();renderDayBreakdown();saveRosterToSheet();
+  renderRoster();renderMissing();renderDayBreakdown();
+  try{
+    const r=await api({action:'saveRoster',roster});
+    if(r.success)toast('Roster updated.',1500);
+    else toast('Error saving roster: '+r.error);
+  }catch(e){toast('Connection error saving roster.');}
 }
 
 function renderRoster(){
@@ -705,7 +715,13 @@ function getOrderedAvail(day){
       const isHalf=getDayRead(anchor.name,day)==='half';
       const READ=isHalf?30:60,PREP=30,TOT=PREP+READ,BRK=i<orderedAnchors.length-1?30:0;
       let placed=false;
-      outputShowsBefore(cur);
+      // Output shows that start before current cursor
+      while(_showIdxRef<dayShows.length&&dayShows[_showIdxRef].startMins<=cur){
+        const _s=dayShows[_showIdxRef];
+        out+=`\n[SHOW] ${_s.name}: ${fmt(_s.startMins)} - ${fmt(_s.endMins)} ET (${fmtPT(_s.startMins)} - ${fmtPT(_s.endMins)} PT) [LOCKED]\n`;
+        window._calEvents.push({title:_s.name,start:toISO(_s.startMins),end:toISO(_s.endMins),description:'NewsForce Show',color:'peacock'});
+        _showIdxRef++;
+      }
       for(const w of wins){
         const ss=Math.max(cur,w.start);
         if(ss+TOT<=w.end&&ss+TOT<=19*60){
@@ -1316,6 +1332,7 @@ function getShowsForDay(day) {
   return result.sort((a,b) => a.startMins - b.startMins);
 }
 
+let _showIdxRef=0;
 function generateSchedule(){
   const wm=getWeekMonday();if(!wm){toast('Select a week first.');return;}
   if(!submissions.length){toast('No submissions - click Refresh first.');return;}
@@ -1397,7 +1414,12 @@ function generateSchedule(){
     if(notes.length)out+='\n'+notes.join('\n')+'\n';
 
     // Output any remaining shows that come after all anchor reads
-    outputShowsBefore(24*60);
+    while(_showIdxRef<dayShows.length){
+      const _s=dayShows[_showIdxRef];
+      out+=`\n[SHOW] ${_s.name}: ${fmt(_s.startMins)} - ${fmt(_s.endMins)} ET (${fmtPT(_s.startMins)} - ${fmtPT(_s.endMins)} PT) [LOCKED]\n`;
+      window._calEvents.push({title:_s.name,start:toISO(_s.startMins),end:toISO(_s.endMins),description:'NewsForce Show',color:'peacock'});
+      _showIdxRef++;
+    }
 
     // LIVE ANCHORS — tech check at 4:30 PM, countdown at 5:00 PM, live at 5:10 PM
     if(liveAvailAnchors.length){
