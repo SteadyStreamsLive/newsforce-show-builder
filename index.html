@@ -705,6 +705,7 @@ function getOrderedAvail(day){
       const isHalf=getDayRead(anchor.name,day)==='half';
       const READ=isHalf?30:60,PREP=30,TOT=PREP+READ,BRK=i<orderedAnchors.length-1?30:0;
       let placed=false;
+      outputShowsBefore(cur);
       for(const w of wins){
         const ss=Math.max(cur,w.start);
         if(ss+TOT<=w.end&&ss+TOT<=19*60){
@@ -1182,6 +1183,139 @@ function setDayScheduleStart(day,val){
   renderDayBreakdown();
 }
 
+// ============================================================
+// SHOWS
+// ============================================================
+async function loadShows() {
+  try {
+    const r = await api({ action: 'getShows' });
+    if (r.success && r.shows) showsCatalog = r.shows;
+    if (r.weekShows) weekShows = r.weekShows;
+  } catch(e) {}
+  renderShowsCatalog();
+  renderWeekShows();
+}
+
+async function saveShows() {
+  try { await api({ action: 'saveShows', shows: showsCatalog }); } catch(e) {}
+}
+
+async function saveWeekShows() {
+  const wm = getWeekMonday(); if (!wm) return;
+  try { await api({ action: 'saveWeekShows', weekMonday: wm, weekShows }); } catch(e) {}
+}
+
+function addShow() {
+  const name = document.getElementById('show-name-input').value.trim();
+  const dur = parseInt(document.getElementById('show-duration-input').value);
+  if (!name) { toast('Enter a show name.'); return; }
+  if (!dur || dur < 15) { toast('Enter a valid duration (min 15).'); return; }
+  if (showsCatalog.find(s => s.name.toLowerCase() === name.toLowerCase())) { toast('Show already exists.'); return; }
+  showsCatalog.push({ name, durationMins: dur });
+  document.getElementById('show-name-input').value = '';
+  document.getElementById('show-duration-input').value = '';
+  renderShowsCatalog();
+  renderWeekShows();
+  saveShows();
+  toast('Show added!');
+}
+
+function removeShow(name) {
+  showsCatalog = showsCatalog.filter(s => s.name !== name);
+  delete weekShows[name];
+  renderShowsCatalog();
+  renderWeekShows();
+  saveShows();
+}
+
+function renderShowsCatalog() {
+  const wrap = document.getElementById('shows-catalog-list');
+  if (!wrap) return;
+  if (!showsCatalog.length) {
+    wrap.innerHTML = '<div style="font-size:13px;color:var(--muted);">No shows added yet. Add a show name and duration above.</div>';
+    return;
+  }
+  wrap.innerHTML = showsCatalog.map(s => `
+    <div class="show-catalog-row">
+      <span class="show-name-tag">${s.name}</span>
+      <span class="show-dur-tag">${s.durationMins} min</span>
+      <span class="show-locked-badge">Fixed</span>
+      <button onclick="removeShow('${s.name}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0;transition:color 0.15s;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--muted)'">x</button>
+    </div>`).join('');
+}
+
+function renderWeekShows() {
+  const wrap = document.getElementById('week-shows-wrap');
+  if (!wrap) return;
+  if (!showsCatalog.length) {
+    wrap.innerHTML = '<div style="font-size:13px;color:var(--muted);">Add shows above to schedule them this week.</div>';
+    return;
+  }
+  wrap.innerHTML = showsCatalog.map(s => {
+    const ws = weekShows[s.name] || {};
+    const selectedDay = ws.day || '';
+    const selectedTime = ws.startTime || '';
+    const endMins = selectedTime ? (() => {
+      const [h,m] = selectedTime.split(':').map(Number);
+      const total = h*60+m+s.durationMins;
+      return String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
+    })() : '';
+    const endDisp = endTime12(endMins);
+    return `<div class="show-week-row">
+      <div>
+        <div class="show-week-name">${s.name}</div>
+        <div class="show-week-dur">${s.durationMins} min</div>
+      </div>
+      <select onchange="setShowDay('${s.name}',this.value)" style="padding:6px 8px;font-size:12px;font-family:'Barlow',sans-serif;background:var(--dark3);border:1px solid var(--border2);border-radius:3px;color:var(--white);outline:none;">
+        <option value="">-- No show this week --</option>
+        ${['Monday','Tuesday','Wednesday','Thursday','Friday','Sunday'].map(d =>
+          `<option value="${d}" ${selectedDay===d?'selected':''}>${d}</option>`
+        ).join('')}
+      </select>
+      <input type="time" value="${selectedTime}" onchange="setShowTime('${s.name}',this.value)"
+        style="padding:6px 8px;font-size:12px;font-family:'Barlow',sans-serif;background:var(--dark3);border:1px solid var(--border2);border-radius:3px;color:var(--white);outline:none;" />
+      ${selectedTime ? `<span style="font-size:11px;color:var(--muted);">to ${endDisp} ET</span>` : ''}
+      <span class="show-locked-badge">Locked</span>
+    </div>`;
+  }).join('');
+}
+
+function endTime12(hhmm) {
+  if (!hhmm) return '';
+  const [h,m] = hhmm.split(':').map(Number);
+  if (isNaN(h)) return '';
+  const ap = h >= 12 ? 'PM' : 'AM', h12 = h > 12 ? h-12 : (h===0?12:h);
+  return h12+':'+String(m).padStart(2,'0')+' '+ap;
+}
+
+function setShowDay(showName, day) {
+  if (!weekShows[showName]) weekShows[showName] = {};
+  weekShows[showName].day = day;
+  renderWeekShows();
+  saveWeekShows();
+}
+
+function setShowTime(showName, time) {
+  if (!weekShows[showName]) weekShows[showName] = {};
+  weekShows[showName].startTime = time;
+  renderWeekShows();
+  saveWeekShows();
+}
+
+function getShowsForDay(day) {
+  // Returns [{name, startMins, endMins}] for all shows scheduled on this day
+  const result = [];
+  showsCatalog.forEach(s => {
+    const ws = weekShows[s.name];
+    if (!ws || ws.day !== day || !ws.startTime) return;
+    const [h,m] = ws.startTime.split(':').map(Number);
+    const startMins = h*60+m;
+    const endMins = startMins + s.durationMins;
+    result.push({ name: s.name, startMins, endMins, durationMins: s.durationMins });
+  });
+  return result.sort((a,b) => a.startMins - b.startMins);
+}
+
 function generateSchedule(){
   const wm=getWeekMonday();if(!wm){toast('Select a week first.');return;}
   if(!submissions.length){toast('No submissions - click Refresh first.');return;}
@@ -1259,13 +1393,11 @@ function generateSchedule(){
       if(!ok)notes.push(`* ${anchor.name} could not be fit on ${day}.`);
     });
 
-    if(!avail.length&&!liveAvailAnchors.length)out+=`* No anchors available.\n`;
-    // Output locked shows for this day
-    dayShows.forEach(show=>{
-      out+=`\n[SHOW] ${show.name}: ${fmt(show.startMins)} - ${fmt(show.endMins)} ET (${fmtPT(show.startMins)} - ${fmtPT(show.endMins)} PT) [LOCKED]\n`;
-      window._calEvents.push({title:show.name,start:toISO(show.startMins),end:toISO(show.endMins),description:'NewsForce Show — Locked',color:'peacock'});
-    });
+    if(!avail.length&&!liveAvailAnchors.length&&!dayShows.length)out+=`* No anchors available.\n`;
     if(notes.length)out+='\n'+notes.join('\n')+'\n';
+
+    // Output any remaining shows that come after all anchor reads
+    outputShowsBefore(24*60);
 
     // LIVE ANCHORS — tech check at 4:30 PM, countdown at 5:00 PM, live at 5:10 PM
     if(liveAvailAnchors.length){
@@ -1465,138 +1597,6 @@ async function pushToCalendar(){
   btn.textContent='Push to Calendar';btn.disabled=false;
 }
 
-// ============================================================
-// SHOWS
-// ============================================================
-async function loadShows() {
-  try {
-    const r = await api({ action: 'getShows' });
-    if (r.success && r.shows) showsCatalog = r.shows;
-    if (r.weekShows) weekShows = r.weekShows;
-  } catch(e) {}
-  renderShowsCatalog();
-  renderWeekShows();
-}
-
-async function saveShows() {
-  try { await api({ action: 'saveShows', shows: showsCatalog }); } catch(e) {}
-}
-
-async function saveWeekShows() {
-  const wm = getWeekMonday(); if (!wm) return;
-  try { await api({ action: 'saveWeekShows', weekMonday: wm, weekShows }); } catch(e) {}
-}
-
-function addShow() {
-  const name = document.getElementById('show-name-input').value.trim();
-  const dur = parseInt(document.getElementById('show-duration-input').value);
-  if (!name) { toast('Enter a show name.'); return; }
-  if (!dur || dur < 15) { toast('Enter a valid duration (min 15).'); return; }
-  if (showsCatalog.find(s => s.name.toLowerCase() === name.toLowerCase())) { toast('Show already exists.'); return; }
-  showsCatalog.push({ name, durationMins: dur });
-  document.getElementById('show-name-input').value = '';
-  document.getElementById('show-duration-input').value = '';
-  renderShowsCatalog();
-  renderWeekShows();
-  saveShows();
-  toast('Show added!');
-}
-
-function removeShow(name) {
-  showsCatalog = showsCatalog.filter(s => s.name !== name);
-  delete weekShows[name];
-  renderShowsCatalog();
-  renderWeekShows();
-  saveShows();
-}
-
-function renderShowsCatalog() {
-  const wrap = document.getElementById('shows-catalog-list');
-  if (!wrap) return;
-  if (!showsCatalog.length) {
-    wrap.innerHTML = '<div style="font-size:13px;color:var(--muted);">No shows added yet. Add a show name and duration above.</div>';
-    return;
-  }
-  wrap.innerHTML = showsCatalog.map(s => `
-    <div class="show-catalog-row">
-      <span class="show-name-tag">${s.name}</span>
-      <span class="show-dur-tag">${s.durationMins} min</span>
-      <span class="show-locked-badge">Fixed</span>
-      <button onclick="removeShow('${s.name}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0;transition:color 0.15s;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--muted)'">x</button>
-    </div>`).join('');
-}
-
-function renderWeekShows() {
-  const wrap = document.getElementById('week-shows-wrap');
-  if (!wrap) return;
-  if (!showsCatalog.length) {
-    wrap.innerHTML = '<div style="font-size:13px;color:var(--muted);">Add shows above to schedule them this week.</div>';
-    return;
-  }
-  wrap.innerHTML = showsCatalog.map(s => {
-    const ws = weekShows[s.name] || {};
-    const selectedDay = ws.day || '';
-    const selectedTime = ws.startTime || '';
-    const endMins = selectedTime ? (() => {
-      const [h,m] = selectedTime.split(':').map(Number);
-      const total = h*60+m+s.durationMins;
-      return String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
-    })() : '';
-    const endDisp = endTime12(endMins);
-    return `<div class="show-week-row">
-      <div>
-        <div class="show-week-name">${s.name}</div>
-        <div class="show-week-dur">${s.durationMins} min</div>
-      </div>
-      <select onchange="setShowDay('${s.name}',this.value)" style="padding:6px 8px;font-size:12px;font-family:'Barlow',sans-serif;background:var(--dark3);border:1px solid var(--border2);border-radius:3px;color:var(--white);outline:none;">
-        <option value="">-- No show this week --</option>
-        ${['Monday','Tuesday','Wednesday','Thursday','Friday','Sunday'].map(d =>
-          `<option value="${d}" ${selectedDay===d?'selected':''}>${d}</option>`
-        ).join('')}
-      </select>
-      <input type="time" value="${selectedTime}" onchange="setShowTime('${s.name}',this.value)"
-        style="padding:6px 8px;font-size:12px;font-family:'Barlow',sans-serif;background:var(--dark3);border:1px solid var(--border2);border-radius:3px;color:var(--white);outline:none;" />
-      ${selectedTime ? `<span style="font-size:11px;color:var(--muted);">to ${endDisp} ET</span>` : ''}
-      <span class="show-locked-badge">Locked</span>
-    </div>`;
-  }).join('');
-}
-
-function endTime12(hhmm) {
-  if (!hhmm) return '';
-  const [h,m] = hhmm.split(':').map(Number);
-  if (isNaN(h)) return '';
-  const ap = h >= 12 ? 'PM' : 'AM', h12 = h > 12 ? h-12 : (h===0?12:h);
-  return h12+':'+String(m).padStart(2,'0')+' '+ap;
-}
-
-function setShowDay(showName, day) {
-  if (!weekShows[showName]) weekShows[showName] = {};
-  weekShows[showName].day = day;
-  renderWeekShows();
-  saveWeekShows();
-}
-
-function setShowTime(showName, time) {
-  if (!weekShows[showName]) weekShows[showName] = {};
-  weekShows[showName].startTime = time;
-  renderWeekShows();
-  saveWeekShows();
-}
-
-function getShowsForDay(day) {
-  // Returns [{name, startMins, endMins}] for all shows scheduled on this day
-  const result = [];
-  showsCatalog.forEach(s => {
-    const ws = weekShows[s.name];
-    if (!ws || ws.day !== day || !ws.startTime) return;
-    const [h,m] = ws.startTime.split(':').map(Number);
-    const startMins = h*60+m;
-    const endMins = startMins + s.durationMins;
-    result.push({ name: s.name, startMins, endMins, durationMins: s.durationMins });
-  });
-  return result.sort((a,b) => a.startMins - b.startMins);
-}
 
 // INIT
 buildDays();
