@@ -711,17 +711,10 @@ function getOrderedAvail(day){
     let cur=schedStart, fitted=0, endTime=schedStart;
     for(let i=0;i<orderedAnchors.length;i++){
       const anchor=orderedAnchors[i];
-      const wins=getWindows(anchor,day);
+      const wins=getWindows(anchor,day); // getWindows already accounts for show blocks
       const isHalf=getDayRead(anchor.name,day)==='half';
       const READ=isHalf?30:60,PREP=30,TOT=PREP+READ,BRK=i<orderedAnchors.length-1?30:0;
       let placed=false;
-      // Output shows that start before current cursor
-      while(_showIdxRef<dayShows.length&&dayShows[_showIdxRef].startMins<=cur){
-        const _s=dayShows[_showIdxRef];
-        out+=`\n[SHOW] ${_s.name}: ${fmt(_s.startMins)} - ${fmt(_s.endMins)} ET (${fmtPT(_s.startMins)} - ${fmtPT(_s.endMins)} PT) [LOCKED]\n`;
-        window._calEvents.push({title:_s.name,start:toISO(_s.startMins),end:toISO(_s.endMins),description:'NewsForce Show',color:'peacock'});
-        _showIdxRef++;
-      }
       for(const w of wins){
         const ss=Math.max(cur,w.start);
         if(ss+TOT<=w.end&&ss+TOT<=19*60){
