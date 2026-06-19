@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Anchor Scheduler - NewsForce</title>
+  <title>NewsForce Show Builder</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%230a0a0a' rx='6'/><text x='50%25' y='54%25' font-family='Arial Black,sans-serif' font-size='13' font-weight='900' fill='%23c8f000' text-anchor='middle' dominant-baseline='middle'>NF</text></svg>" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
@@ -160,9 +160,6 @@
     .day-read-opt{padding:2px 8px;border-radius:3px;border:1px solid var(--border2);background:transparent;font-size:10px;font-weight:600;color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;transition:all 0.15s;}
     .day-read-opt.active{background:rgba(200,240,0,0.15);border-color:rgba(200,240,0,0.4);color:var(--accent);}
     .day-read-off.active{background:rgba(255,59,48,0.15)!important;border-color:rgba(255,59,48,0.4)!important;color:var(--red)!important;}
-    .add-read-select{padding:2px 6px;border-radius:3px;border:1px solid var(--border2);background:transparent;font-size:10px;font-weight:600;color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;transition:all 0.15s;outline:none;}
-    .add-read-select.active{background:rgba(10,132,255,0.15);border-color:rgba(10,132,255,0.4);color:#0a84ff;}
-    .add-read-select option{background:var(--dark2);}
     .live-btn{padding:2px 8px;border-radius:3px;border:1px solid var(--border2);background:transparent;font-size:10px;font-weight:700;color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;transition:all 0.15s;letter-spacing:0.05em;}
     .live-btn.active{background:rgba(255,159,10,0.15);border-color:rgba(255,159,10,0.4);color:var(--amber);}
     .live-btn:hover:not(.active){background:var(--dark3);color:var(--white);}
@@ -190,6 +187,13 @@
     .anchor-pill-btn{background:rgba(200,240,0,0.1);border:1px solid rgba(200,240,0,0.2);border-radius:99px;padding:3px 12px;font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;font-family:'Barlow',sans-serif;transition:all 0.15s;}
     .anchor-pill-btn:hover{background:rgba(200,240,0,0.2);}
     .anchor-pill-btn.expanded{background:rgba(200,240,0,0.25);border-color:rgba(200,240,0,0.5);}
+    .show-catalog-row{display:flex;align-items:center;gap:10px;background:var(--dark2);border:1px solid var(--border);border-radius:4px;padding:8px 12px;}
+    .show-name-tag{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--accent);flex:1;}
+    .show-dur-tag{font-size:12px;color:var(--muted);}
+    .show-week-row{display:flex;align-items:center;gap:10px;background:var(--dark2);border:1px solid var(--border);border-radius:4px;padding:10px 12px;margin-bottom:6px;flex-wrap:wrap;}
+    .show-week-name{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--accent);min-width:140px;}
+    .show-week-dur{font-size:11px;color:var(--muted);margin-left:-6px;}
+    .show-locked-badge{background:rgba(255,159,10,0.12);border:1px solid rgba(255,159,10,0.3);border-radius:3px;padding:2px 7px;font-size:10px;font-weight:700;color:var(--amber);letter-spacing:0.05em;text-transform:uppercase;}
     @media(max-width:500px){.topbar{padding:0 1rem;gap:8px;}.logo-sub,.logo-divider{display:none;}.container{padding:1.25rem 1rem;}.producer-top{flex-direction:column;}.accent-btn{width:100%;text-align:center;}}
   </style>
 </head>
@@ -199,7 +203,7 @@
 <div id="app-lock" style="position:fixed;inset:0;background:#0a0a0a;z-index:9999;display:flex;align-items:center;justify-content:center;">
   <div style="background:#111111;border:1px solid #2e2e2e;border-radius:12px;padding:2.5rem 2rem;width:100%;max-width:340px;text-align:center;">
     <div style="background:#c8f000;color:#0a0a0a;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;letter-spacing:0.05em;padding:4px 8px;border-radius:4px;display:inline-block;margin-bottom:1rem;">NF</div>
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:white;margin-bottom:6px;">NewsForce Anchor Scheduler</div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:white;margin-bottom:6px;">NewsForce Show Builder</div>
     <div style="font-size:13px;color:#888;margin-bottom:1.5rem;">Enter password to continue.</div>
     <input type="password" id="app-pw-input" maxlength="20" placeholder="Password" onkeydown="if(event.key==='Enter')checkAppPassword()"
       style="width:100%;padding:12px 16px;font-size:16px;font-family:'Barlow',sans-serif;text-align:center;background:#1a1a1a;border:1px solid #3a3a3a;border-radius:4px;color:white;outline:none;margin-bottom:8px;" />
@@ -227,10 +231,10 @@
     <span class="logo-mark">NF</span>
     <span class="logo-text">NewsForce</span>
     <span class="logo-divider"></span>
-    <span class="logo-sub">Anchor Scheduler</span>
+    <span class="logo-sub">Show Builder</span>
   </div>
   <span class="live-badge"><span class="live-dot"></span>Live</span>
-  <button class="nav-btn active" onclick="switchView('form',this)">Anchor Form</button>
+  <button class="nav-btn active" onclick="switchView('form',this)">Talent View</button>
   <button class="nav-btn" id="producer-nav-btn" onclick="requestProducer(this)">Producer</button>
 </div>
 
@@ -338,6 +342,17 @@
       </div>
     </div>
 
+    <div class="section-label">Shows</div>
+    <div id="shows-catalog-wrap" style="margin-bottom:10px;">
+      <div id="shows-catalog-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <input type="text" id="show-name-input" placeholder="Show name..." style="padding:7px 10px;font-size:13px;font-family:'Barlow',sans-serif;background:var(--dark2);border:1px solid var(--border2);border-radius:4px;color:var(--white);outline:none;flex:1;min-width:140px;" />
+        <input type="number" id="show-duration-input" placeholder="Duration (min)" min="15" max="480" style="padding:7px 10px;font-size:13px;font-family:'Barlow',sans-serif;background:var(--dark2);border:1px solid var(--border2);border-radius:4px;color:var(--white);outline:none;width:140px;" />
+        <button class="ghost-btn" onclick="addShow()">Add Show</button>
+      </div>
+    </div>
+    <div class="section-label">Show schedule this week</div>
+    <div id="week-shows-wrap" style="margin-bottom:1rem;"></div>
     <div class="section-label">Off days this week</div>
     <div class="offday-grid" id="offday-grid"></div>
 
@@ -402,6 +417,8 @@ const SCRIPT_URL="https://script.google.com/a/macros/steadystreamslive.com/s/AKf
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const TZ_OFF={ET:0,CT:1,MT:2,PT:3,GMT:-5,CET:-6,IST:-10.5,AEST:-16};
 let submissions=[],blockCounts={},roster=[],offDays=[],readTypes={},additionalReads={},dayOrders={},dayExclusions={},liveAnchors={},dayScheduleStart={},liveStartTime='17:00',producerUnlocked=false;
+let showsCatalog=[]; // [{name, durationMins}] permanent show definitions
+let weekShows={}; // {showName: {day, startTime}} per-week schedule
 
 function toast(msg,ms=2500){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),ms);}
 async function api(payload){const r=await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify(payload)});return r.json();}
@@ -411,7 +428,7 @@ function switchView(view,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('view-'+view).classList.add('active');
   btn.classList.add('active');
-  if(view==='producer'){buildOffDayGrid();loadRoster();loadSubmissions();}
+  if(view==='producer'){buildOffDayGrid();loadRoster();loadSubmissions();loadShows();}
 }
 
 function requestProducer(btn){
@@ -537,6 +554,9 @@ async function loadSubmissions(){
     const res=await api({action:'getSubmissions',weekMonday:wm});
     submissions=res.submissions||[];renderChips();renderMissing();
     await loadSettings();
+    // Load week-specific show schedule
+    try { const sr=await api({action:'getWeekShows',weekMonday:wm}); if(sr.success&&sr.weekShows) weekShows=sr.weekShows; } catch(e){}
+    renderWeekShows();
     renderDayBreakdown();
   }catch(e){grid.innerHTML='<div style="font-size:13px;color:var(--muted);">Connection error.</div>';}
 }
@@ -589,17 +609,6 @@ function restoreAnchorToDay(anchorName,day){
 
 function isExcluded(anchorName,day){
   return dayExclusions[day]&&dayExclusions[day].has(anchorName);
-}
-
-function setAdditionalRead(anchorName,day,val){
-  if(!additionalReads[anchorName])additionalReads[anchorName]={};
-  additionalReads[anchorName][day]=val;
-  saveSettings();
-  renderDayBreakdown();
-}
-
-function getAdditionalRead(anchorName,day){
-  return parseInt(additionalReads[anchorName]?.[day]||'0');
 }
 
 function toggleLive(anchorName,day,btn){
@@ -806,7 +815,7 @@ function simulateOrder(orderedAnchors,day){
     const wins=getWindows(anchor,day);
     if(!wins){conflicts.push(anchor.name);continue;}
     const isHalf=getDayRead(anchor.name,day)==='half';
-    const READ=isHalf?30:60,PREP=30,addMin=getAdditionalRead(anchor.name,day),TOT=PREP+READ+addMin;
+    const READ=isHalf?30:60,PREP=30,TOT=PREP+READ;
     // Check break needed before this anchor
     const BRK=i>0?30:0;
     const startFrom=cur;
@@ -918,12 +927,6 @@ function renderDayBreakdown(){
           <button class="day-read-opt ${rt==='half'?'active':''}" onclick="setDayRead('${a.name}','${day}','half',this)">Half 30m</button>
           <button class="day-read-opt day-read-off ${rt==='off'?'active':''}" onclick="setDayRead('${a.name}','${day}','off',this)">Off</button>
           <button class="live-btn ${isLive?'active':''}" onclick="toggleLive('${a.name}','${day}',this)">LIVE</button>
-          <select class="add-read-select ${(additionalReads[a.name]&&additionalReads[a.name][day]&&additionalReads[a.name][day]!=='0')?'active':''}" onchange="setAdditionalRead('${a.name}','${day}',this.value)" title="Additional Read">
-            <option value="0" ${(!additionalReads[a.name]||!additionalReads[a.name][day]||additionalReads[a.name][day]==='0')?'selected':''}>+Add</option>
-            <option value="15" ${additionalReads[a.name]&&additionalReads[a.name][day]==='15'?'selected':''}>+15m</option>
-            <option value="30" ${additionalReads[a.name]&&additionalReads[a.name][day]==='30'?'selected':''}>+30m</option>
-            <option value="45" ${additionalReads[a.name]&&additionalReads[a.name][day]==='45'?'selected':''}>+45m</option>
-          </select>
         </div>
         <div class="detail-panel" id="detail-${day}-${safeId}">${detailHTML}</div>
       </div>`;
@@ -1090,6 +1093,16 @@ function getWindows(anchor,day){
   const blocks=anchor.days[day];if(!blocks||!blocks.length||blocks[0].type==='off')return null;
   const schedStart=getScheduleStart(day);
   let wins=[{start:schedStart,end:19*60}];
+  // Block out locked show windows
+  const dayShows=getShowsForDay(day);
+  dayShows.forEach(show=>{
+    const nw=[];
+    wins.forEach(w=>{
+      if(show.startMins>w.start)nw.push({start:w.start,end:Math.min(show.startMins,w.end)});
+      if(show.endMins<w.end)nw.push({start:Math.max(show.endMins,w.start),end:w.end});
+    });
+    wins=nw.filter(w=>w.end>w.start+15);
+  });
   blocks.forEach(b=>{
     if(b.type==='all')return;
     if(b.type==='before'){const c=toMins(toET(b.before,anchor.tz));wins=wins.map(w=>({...w,end:Math.min(w.end,c)})).filter(w=>w.end>w.start);}
@@ -1141,7 +1154,6 @@ async function loadSettings(){
           liveAnchors[k]=new Set(v);
         });
       }
-      if(s.additionalReads){Object.assign(additionalReads,s.additionalReads);}
       if(s.dayScheduleStart){Object.assign(dayScheduleStart,s.dayScheduleStart);}
       if(s.liveStartTime){
         liveStartTime=s.liveStartTime;
@@ -1198,7 +1210,7 @@ function generateSchedule(){
     avail.forEach((anchor,idx)=>{
       const wins=getWindows(anchor,day);
       const isHalf=getDayRead(anchor.name,day)==='half';
-      const READ=isHalf?30:60,PREP=30,addMin=getAdditionalRead(anchor.name,day),TOT=PREP+READ+addMin;
+      const READ=isHalf?30:60,PREP=30,TOT=PREP+READ;
       let ok=false;
       for(const w of wins){
         const ss=Math.max(cur,w.start);
@@ -1248,6 +1260,11 @@ function generateSchedule(){
     });
 
     if(!avail.length&&!liveAvailAnchors.length)out+=`* No anchors available.\n`;
+    // Output locked shows for this day
+    dayShows.forEach(show=>{
+      out+=`\n[SHOW] ${show.name}: ${fmt(show.startMins)} - ${fmt(show.endMins)} ET (${fmtPT(show.startMins)} - ${fmtPT(show.endMins)} PT) [LOCKED]\n`;
+      window._calEvents.push({title:show.name,start:toISO(show.startMins),end:toISO(show.endMins),description:'NewsForce Show — Locked',color:'peacock'});
+    });
     if(notes.length)out+='\n'+notes.join('\n')+'\n';
 
     // LIVE ANCHORS — tech check at 4:30 PM, countdown at 5:00 PM, live at 5:10 PM
@@ -1356,7 +1373,7 @@ function generateICSContent(events, title){
   var lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//NewsForce Anchor Scheduler//EN',
+    'PRODID:-//NewsForce Show Builder//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'X-WR-CALNAME:' + title,
@@ -1446,6 +1463,139 @@ async function pushToCalendar(){
     toast(r.success?'Calendar updated!':'Error: '+r.error,3000);
   }catch(e){toast('Connection error.');}
   btn.textContent='Push to Calendar';btn.disabled=false;
+}
+
+// ============================================================
+// SHOWS
+// ============================================================
+async function loadShows() {
+  try {
+    const r = await api({ action: 'getShows' });
+    if (r.success && r.shows) showsCatalog = r.shows;
+    if (r.weekShows) weekShows = r.weekShows;
+  } catch(e) {}
+  renderShowsCatalog();
+  renderWeekShows();
+}
+
+async function saveShows() {
+  try { await api({ action: 'saveShows', shows: showsCatalog }); } catch(e) {}
+}
+
+async function saveWeekShows() {
+  const wm = getWeekMonday(); if (!wm) return;
+  try { await api({ action: 'saveWeekShows', weekMonday: wm, weekShows }); } catch(e) {}
+}
+
+function addShow() {
+  const name = document.getElementById('show-name-input').value.trim();
+  const dur = parseInt(document.getElementById('show-duration-input').value);
+  if (!name) { toast('Enter a show name.'); return; }
+  if (!dur || dur < 15) { toast('Enter a valid duration (min 15).'); return; }
+  if (showsCatalog.find(s => s.name.toLowerCase() === name.toLowerCase())) { toast('Show already exists.'); return; }
+  showsCatalog.push({ name, durationMins: dur });
+  document.getElementById('show-name-input').value = '';
+  document.getElementById('show-duration-input').value = '';
+  renderShowsCatalog();
+  renderWeekShows();
+  saveShows();
+  toast('Show added!');
+}
+
+function removeShow(name) {
+  showsCatalog = showsCatalog.filter(s => s.name !== name);
+  delete weekShows[name];
+  renderShowsCatalog();
+  renderWeekShows();
+  saveShows();
+}
+
+function renderShowsCatalog() {
+  const wrap = document.getElementById('shows-catalog-list');
+  if (!wrap) return;
+  if (!showsCatalog.length) {
+    wrap.innerHTML = '<div style="font-size:13px;color:var(--muted);">No shows added yet. Add a show name and duration above.</div>';
+    return;
+  }
+  wrap.innerHTML = showsCatalog.map(s => `
+    <div class="show-catalog-row">
+      <span class="show-name-tag">${s.name}</span>
+      <span class="show-dur-tag">${s.durationMins} min</span>
+      <span class="show-locked-badge">Fixed</span>
+      <button onclick="removeShow('${s.name}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0;transition:color 0.15s;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--muted)'">x</button>
+    </div>`).join('');
+}
+
+function renderWeekShows() {
+  const wrap = document.getElementById('week-shows-wrap');
+  if (!wrap) return;
+  if (!showsCatalog.length) {
+    wrap.innerHTML = '<div style="font-size:13px;color:var(--muted);">Add shows above to schedule them this week.</div>';
+    return;
+  }
+  wrap.innerHTML = showsCatalog.map(s => {
+    const ws = weekShows[s.name] || {};
+    const selectedDay = ws.day || '';
+    const selectedTime = ws.startTime || '';
+    const endMins = selectedTime ? (() => {
+      const [h,m] = selectedTime.split(':').map(Number);
+      const total = h*60+m+s.durationMins;
+      return String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
+    })() : '';
+    const endDisp = endTime12(endMins);
+    return `<div class="show-week-row">
+      <div>
+        <div class="show-week-name">${s.name}</div>
+        <div class="show-week-dur">${s.durationMins} min</div>
+      </div>
+      <select onchange="setShowDay('${s.name}',this.value)" style="padding:6px 8px;font-size:12px;font-family:'Barlow',sans-serif;background:var(--dark3);border:1px solid var(--border2);border-radius:3px;color:var(--white);outline:none;">
+        <option value="">-- No show this week --</option>
+        ${['Monday','Tuesday','Wednesday','Thursday','Friday','Sunday'].map(d =>
+          `<option value="${d}" ${selectedDay===d?'selected':''}>${d}</option>`
+        ).join('')}
+      </select>
+      <input type="time" value="${selectedTime}" onchange="setShowTime('${s.name}',this.value)"
+        style="padding:6px 8px;font-size:12px;font-family:'Barlow',sans-serif;background:var(--dark3);border:1px solid var(--border2);border-radius:3px;color:var(--white);outline:none;" />
+      ${selectedTime ? `<span style="font-size:11px;color:var(--muted);">to ${endDisp} ET</span>` : ''}
+      <span class="show-locked-badge">Locked</span>
+    </div>`;
+  }).join('');
+}
+
+function endTime12(hhmm) {
+  if (!hhmm) return '';
+  const [h,m] = hhmm.split(':').map(Number);
+  if (isNaN(h)) return '';
+  const ap = h >= 12 ? 'PM' : 'AM', h12 = h > 12 ? h-12 : (h===0?12:h);
+  return h12+':'+String(m).padStart(2,'0')+' '+ap;
+}
+
+function setShowDay(showName, day) {
+  if (!weekShows[showName]) weekShows[showName] = {};
+  weekShows[showName].day = day;
+  renderWeekShows();
+  saveWeekShows();
+}
+
+function setShowTime(showName, time) {
+  if (!weekShows[showName]) weekShows[showName] = {};
+  weekShows[showName].startTime = time;
+  renderWeekShows();
+  saveWeekShows();
+}
+
+function getShowsForDay(day) {
+  // Returns [{name, startMins, endMins}] for all shows scheduled on this day
+  const result = [];
+  showsCatalog.forEach(s => {
+    const ws = weekShows[s.name];
+    if (!ws || ws.day !== day || !ws.startTime) return;
+    const [h,m] = ws.startTime.split(':').map(Number);
+    const startMins = h*60+m;
+    const endMins = startMins + s.durationMins;
+    result.push({ name: s.name, startMins, endMins, durationMins: s.durationMins });
+  });
+  return result.sort((a,b) => a.startMins - b.startMins);
 }
 
 // INIT
