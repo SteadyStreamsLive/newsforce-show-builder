@@ -630,6 +630,10 @@ function isExcluded(anchorName,day){
   return dayExclusions[day]&&dayExclusions[day].has(anchorName);
 }
 
+function getAdditionalRead(anchorName,day){
+  return parseInt(additionalReads[anchorName]?.[day]||'0');
+}
+
 function toggleLive(anchorName,day,btn){
   if(!liveAnchors[day])liveAnchors[day]=new Set();
   if(liveAnchors[day].has(anchorName)){
@@ -724,6 +728,7 @@ function getOrderedAvail(day){
       const isHalf=getDayRead(anchor.name,day)==='half';
       const READ=isHalf?30:60,PREP=30,TOT=PREP+READ,BRK=i<orderedAnchors.length-1?30:0;
       let placed=false;
+      if(!wins){notes.push(`* ${anchor.name} could not be fit on ${day}.`);return;}
       for(const w of wins){
         const ss=Math.max(cur,w.start);
         if(ss+TOT<=w.end&&ss+TOT<=19*60){
