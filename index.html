@@ -340,6 +340,14 @@
           <option value="18:30">6:30 PM ET</option>
         </select>
       </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-size:12px;color:var(--muted);font-weight:500;">Live prep</label>
+        <select id="live-prep-time" style="padding:6px 10px;font-size:13px;font-family:'Barlow',sans-serif;background:var(--dark2);border:1px solid var(--border2);border-radius:4px;color:var(--white);outline:none;" onchange="liveShowPrepTime=parseInt(this.value);saveSettings();">
+          <option value="30">30 min</option>
+          <option value="45">45 min</option>
+          <option value="60">1 hour</option>
+        </select>
+      </div>
     </div>
 
     <div class="section-label">Shows</div>
@@ -418,6 +426,7 @@ const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunda
 const TZ_OFF={ET:0,CT:1,MT:2,PT:3,GMT:-5,CET:-6,IST:-10.5,AEST:-16};
 let submissions=[],blockCounts={},roster=[],offDays=[],readTypes={},additionalReads={},dayOrders={},dayExclusions={},liveAnchors={},dayScheduleStart={},liveStartTime='17:00',producerUnlocked=false;
 let showsCatalog=[]; // [{name, durationMins}] permanent show definitions
+let liveShowPrepTime=30; // minutes of prep before live show (30 or 60)
 let weekShows={}; // {showName: {day, startTime}} per-week schedule
 
 function toast(msg,ms=2500){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),ms);}
@@ -1127,6 +1136,7 @@ async function saveSettings(){
     offDays: offDays,
     dayScheduleStart: dayScheduleStart,
     liveStartTime: liveStartTime,
+    liveShowPrepTime: liveShowPrepTime,
     dayOrders: Object.fromEntries(Object.entries(dayOrders).map(([k,v])=>[k,v])),
     readTypes: Object.fromEntries(Object.entries(readTypes).map(([k,v])=>[k,typeof v==='object'?Object.fromEntries(Object.entries(v)):v])),
     dayExclusions: Object.fromEntries(Object.entries(dayExclusions).map(([k,v])=>[k,[...v]]))
@@ -1169,6 +1179,11 @@ async function loadSettings(){
         liveStartTime=s.liveStartTime;
         const sel=document.getElementById('live-start-time');
         if(sel)sel.value=s.liveStartTime;
+      }
+      if(s.liveShowPrepTime){
+        liveShowPrepTime=s.liveShowPrepTime;
+        const psel=document.getElementById('live-prep-time');
+        if(psel)psel.value=s.liveShowPrepTime;
       }
       buildOffDayGrid();
       renderDayBreakdown();
@@ -1388,76 +1403,64 @@ function generateSchedule(){
     const allAvail=getOrderedAvail(day).filter(a=>!isExcluded(a.name,day));
     const avail=allAvail.filter(a=>!isAnchorLive(a.name,day));
     const liveAvailAnchors=allAvail.filter(a=>isAnchorLive(a.name,day));
-    const scheduledAnchors=new Set();
 
+    // Collect all tape events with their actual times
+    const dayEvents=[]; // {type:'anchor'|'show'|'break', startMins, endMins, label}
     avail.forEach((anchor,idx)=>{
       const wins=getWindows(anchor,day);
       const isHalf=getDayRead(anchor.name,day)==='half';
-      const READ=isHalf?30:60,PREP=30,TOT=PREP+READ;
-      let ok=false;
+      const READ=isHalf?30:60,PREP=30,addMin=getAdditionalRead(anchor.name,day),TOT=PREP+READ+addMin;
+      let placed=false;
       for(const w of wins){
         const ss=Math.max(cur,w.start);
         if(ss+TOT<=w.end&&ss+TOT<=19*60){
-          const pe=ss+PREP,re=ss+TOT;
-          out+=`\n${anchor.name} | Live to Tape Test / Prep: ${fmt(ss)} - ${fmt(pe)} ET (${fmtPT(ss)} - ${fmtPT(pe)} PT) Read: ${fmt(pe)} - ${fmt(re)} ET (${fmtPT(pe)} - ${fmtPT(re)} PT)\n`;
-          window._calEvents.push({title:anchor.name+' - Tech Check',start:toISO(ss),end:toISO(pe),description:'Live to Tape Tech Check',color:'radicchio'});
-          window._calEvents.push({title:anchor.name+' - '+(isHalf?'Half Read':'Read'),start:toISO(pe),end:toISO(re),description:'Live to Tape Read',color:'radicchio'});
+          const pe=ss+PREP;
+          const ae=addMin>0?pe+addMin:pe;
+          const re=ss+TOT;
+          let label=`${anchor.name} | Live to Tape Test / Prep: ${fmt(ss)} - ${fmt(pe)} ET (${fmtPT(ss)} - ${fmtPT(pe)} PT) Read: ${fmt(pe)} - ${fmt(re)} ET (${fmtPT(pe)} - ${fmtPT(re)} PT)`;
+          if(addMin>0) label=`${anchor.name} | Live to Tape Test / Prep: ${fmt(ss)} - ${fmt(pe)} ET (${fmtPT(ss)} - ${fmtPT(pe)} PT) Additional Read: ${fmt(pe)} - ${fmt(ae)} ET (${fmtPT(pe)} - ${fmtPT(ae)} PT) Read: ${fmt(ae)} - ${fmt(re)} ET (${fmtPT(ae)} - ${fmtPT(re)} PT)`;
+          dayEvents.push({type:'anchor',startMins:ss,endMins:re,label,anchor,isHalf,addMin,prep:ss,prepEnd:pe,readStart:ae,readEnd:re});
+          window._calEvents.push({title:anchor.name+' - Live to Tape',start:toISO(ss),end:toISO(re),description:'Tech Check + Read',color:'radicchio'});
           cur=re;
-
-          // Only add break if there are more anchors that can actually be placed after this one
-          // Find the next anchor that can actually fit after current cursor
-          const remainingAnchors=avail.slice(idx+1).filter(a=>!scheduledAnchors.has(a.name));
-          let nextFittingAnchor=null;
-          for(const nextAnchor of remainingAnchors){
-            const nextWins=getWindows(nextAnchor,day);
-            if(!nextWins)continue;
-            const isHalfNext=getDayRead(nextAnchor.name,day)==='half';
-            const nextRead=isHalfNext?30:60;
-            for(const nw of nextWins){
-              const ns=Math.max(cur,nw.start);
-              if(ns+PREP+nextRead<=nw.end&&ns+PREP+nextRead<=19*60){
-                nextFittingAnchor=nextAnchor;break;
-              }
-            }
-            if(nextFittingAnchor)break;
+          // Check if next anchor needs a break
+          const remainingAnchors=avail.slice(idx+1);
+          let nextFit=null;
+          for(const na of remainingAnchors){
+            const nw=getWindows(na,day);if(!nw)continue;
+            const nh=getDayRead(na.name,day)==='half';
+            for(const w2 of nw){const ns=Math.max(cur,w2.start);if(ns+PREP+(nh?30:60)<=w2.end&&ns+PREP+(nh?30:60)<=19*60){nextFit=na;break;}}
+            if(nextFit)break;
           }
-          if(nextFittingAnchor){
-            const nextWins=getWindows(nextFittingAnchor,day);
-            let nextStart=19*60;
-            if(nextWins){for(const nw of nextWins){const ns=Math.max(cur,nw.start);if(ns+PREP+(getDayRead(nextFittingAnchor.name,day)==='half'?30:60)<=nw.end){nextStart=ns;break;}}}
-            const gap=nextStart-cur;
-            if(gap>=45){
-              out+=`Ops Break / SOT Check ${fmt(cur)} - ${fmt(cur+45)} ET (${fmtPT(cur)} - ${fmtPT(cur+45)} PT)\n`;
-              window._calEvents.push({title:'Ops Break / SOT Check',start:toISO(cur),end:toISO(cur+45),description:'Ops Break and SOT Check',color:'flamingo'});
-              cur+=45;
-            } else {
-              out+=`Break / SOT Check ${fmt(cur)} - ${fmt(cur+30)} ET (${fmtPT(cur)} - ${fmtPT(cur+30)} PT)\n`;
-              window._calEvents.push({title:'Break / SOT Check',start:toISO(cur),end:toISO(cur+30),description:'SOT Check',color:'flamingo'});
-              cur+=30;
-            }
+          if(nextFit){
+            const brk=30;
+            dayEvents.push({type:'break',startMins:cur,endMins:cur+brk,label:`Break / SOT Check ${fmt(cur)} - ${fmt(cur+brk)} ET (${fmtPT(cur)} - ${fmtPT(cur+brk)} PT)`});
+            window._calEvents.push({title:'Break / SOT Check',start:toISO(cur),end:toISO(cur+brk),description:'SOT Check',color:'flamingo'});
+            cur+=brk;
           }
-          ok=true;break;
+          placed=true;break;
         }
       }
-      if(!ok)notes.push(`* ${anchor.name} could not be fit on ${day}.`);
+      if(!placed)notes.push(`* ${anchor.name} could not be fit on ${day}.`);
     });
+
+    // Add shows as events
+    dayShows.forEach(show=>{
+      dayEvents.push({type:'show',startMins:show.startMins,endMins:show.endMins,label:`[SHOW] ${show.name}: ${fmt(show.startMins)} - ${fmt(show.endMins)} ET (${fmtPT(show.startMins)} - ${fmtPT(show.endMins)} PT) [LOCKED]`,show});
+      window._calEvents.push({title:show.name,start:toISO(show.startMins),end:toISO(show.endMins),description:'NewsForce Show',color:'peacock'});
+    });
+
+    // Sort all events by start time and output
+    dayEvents.sort((a,b)=>a.startMins-b.startMins);
+    dayEvents.forEach(ev=>{ out+=`\n${ev.label}\n`; });
 
     if(!avail.length&&!liveAvailAnchors.length&&!dayShows.length)out+=`* No anchors available.\n`;
     if(notes.length)out+='\n'+notes.join('\n')+'\n';
-
-    // Output any remaining shows that come after all anchor reads
-    while(_showIdxRef<dayShows.length){
-      const _s=dayShows[_showIdxRef];
-      out+=`\n[SHOW] ${_s.name}: ${fmt(_s.startMins)} - ${fmt(_s.endMins)} ET (${fmtPT(_s.startMins)} - ${fmtPT(_s.endMins)} PT) [LOCKED]\n`;
-      window._calEvents.push({title:_s.name,start:toISO(_s.startMins),end:toISO(_s.endMins),description:'NewsForce Show',color:'peacock'});
-      _showIdxRef++;
-    }
 
     // LIVE ANCHORS — tech check at 4:30 PM, countdown at 5:00 PM, live at 5:10 PM
     if(liveAvailAnchors.length){
       const [lh,lm]=liveStartTime.split(':').map(Number);
       const LIVE_BASE=lh*60+lm; // selected go-live time
-      const TECH_START=LIVE_BASE-30; // 30 min tech check before live
+      const TECH_START=LIVE_BASE-liveShowPrepTime; // configurable prep before live
       const COUNTDOWN_START=LIVE_BASE; // countdown at go-live time
       const LIVE_START=LIVE_BASE+10; // actual live 10 min after countdown
       let liveEnd=LIVE_START;
