@@ -1378,6 +1378,8 @@ function generateSchedule(){
     if(offDays.includes(day)){out+=`${day.toUpperCase()} ${ds}\nOFF\n\n`;return;}
 
     out+=`${day.toUpperCase()} ${ds}\n`;
+    const dayShows=getShowsForDay(day);
+    let _showIdxRef=0;
     const SCHED_START=getScheduleStart(day),OPS_PREP_END_TIME=SCHED_START+60;
     out+=`Ops Prep ${fmt(SCHED_START)} - ${fmt(OPS_PREP_END_TIME)} ET (${fmtPT(SCHED_START)} - ${fmtPT(OPS_PREP_END_TIME)} PT)\n`;
     window._calEvents.push({title:'Ops Prep',start:toISO(SCHED_START),end:toISO(OPS_PREP_END_TIME),description:'NewsForce Ops Prep',color:'lavender'});
