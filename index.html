@@ -1615,7 +1615,7 @@ function showICSMenu(){
 
   // Build buttons - full schedule + one per anchor
   const anchorNames = [...new Set(window._calEvents
-    .filter(e=>e.title.includes(' - Tech Check')||e.title.includes(' - Read')||e.title.includes('Half Read'))
+    .filter(e=>e.title.includes(' - Live to Tape')||e.title.includes(' - Live Tech Check')||e.title.includes(' - LIVE'))
     .map(e=>e.title.split(' - ')[0]))];
 
   let html = `<button class="ghost-btn" onclick="downloadFullICS()">Full Schedule</button>`;
@@ -1640,7 +1640,7 @@ function downloadAnchorICS(anchorName){
   );
   // For anchor ICS only include their personal slots (not ops prep)
   const personalEvents = window._calEvents.filter(e =>
-    e.title.startsWith(anchorName + ' -')
+    e.title.startsWith(anchorName + ' -') || e.title === 'Ops Prep' || e.title === 'Live Stream Start'
   );
   const wm = getWeekMonday();
   const ics = generateICSContent(personalEvents, `NewsForce - ${anchorName}`);
