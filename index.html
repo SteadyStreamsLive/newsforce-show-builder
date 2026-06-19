@@ -1281,8 +1281,15 @@ function renderWeekShows() {
           `<option value="${d}" ${selectedDay===d?'selected':''}>${d}</option>`
         ).join('')}
       </select>
-      <input type="time" value="${selectedTime}" onchange="setShowTime('${s.name}',this.value)"
-        style="padding:6px 8px;font-size:12px;font-family:'Barlow',sans-serif;background:var(--dark3);border:1px solid var(--border2);border-radius:3px;color:var(--white);outline:none;" />
+      <div style="display:flex;gap:4px;align-items:center;">
+        <input type="text" id="show-time-hm-${s.name.replace(/\s/g,'_')}" value="${selectedTime ? to12HM(selectedTime) : ''}" placeholder="12:00"
+          maxlength="5" style="width:52px;padding:6px 8px;font-size:12px;font-family:'Barlow',sans-serif;background:var(--dark3);border:1px solid var(--border2);border-radius:3px;color:var(--white);outline:none;text-align:center;"
+          oninput="formatTimeInput(this)" onblur="applyShowTime('${s.name}',this)" onkeydown="if(event.key==='Enter')applyShowTime('${s.name}',this)" />
+        <select id="show-ampm-${s.name.replace(/\s/g,'_')}" style="padding:6px 6px;font-size:12px;font-family:'Barlow',sans-serif;background:var(--dark3);border:1px solid var(--border2);border-radius:3px;color:var(--white);outline:none;" onchange="applyShowTime('${s.name}',document.getElementById('show-time-hm-${s.name.replace(/\s/g,'_')}'))">
+          <option value="AM" ${selectedTime && parseInt(selectedTime.split(':')[0])<12 ? 'selected' : ''}>AM</option>
+          <option value="PM" ${selectedTime && parseInt(selectedTime.split(':')[0])>=12 ? 'selected' : ''}>PM</option>
+        </select>
+      </div>
       ${selectedTime ? `<span style="font-size:11px;color:var(--muted);">to ${endDisp} ET</span>` : ''}
       <span class="show-locked-badge">Locked</span>
     </div>`;
@@ -1302,6 +1309,36 @@ function setShowDay(showName, day) {
   weekShows[showName].day = day;
   renderWeekShows();
   saveWeekShows();
+}
+
+function to12HM(hhmm) {
+  if (!hhmm) return '';
+  const [h,m] = hhmm.split(':').map(Number);
+  const h12 = h === 0 ? 12 : h > 12 ? h-12 : h;
+  return h12+':'+String(m).padStart(2,'0');
+}
+
+function formatTimeInput(inp) {
+  // Auto-insert colon after 2 digits
+  let v = inp.value.replace(/[^0-9]/g,'');
+  if (v.length > 2) v = v.slice(0,2)+':'+v.slice(2,4);
+  inp.value = v;
+}
+
+function applyShowTime(showName, hmInp) {
+  const safeName = showName.replace(/\s/g,'_');
+  const ampmSel = document.getElementById('show-ampm-'+safeName);
+  if (!hmInp || !ampmSel) return;
+  const raw = hmInp.value.trim();
+  if (!raw || !raw.includes(':')) return;
+  const [hStr, mStr] = raw.split(':');
+  let h = parseInt(hStr), m = parseInt(mStr||'0');
+  if (isNaN(h) || isNaN(m)) return;
+  const ampm = ampmSel.value;
+  if (ampm === 'PM' && h < 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+  const time24 = String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+  setShowTime(showName, time24);
 }
 
 function setShowTime(showName, time) {
