@@ -631,7 +631,9 @@ function switchDayTab(day){
   currentDay=day;
   document.querySelectorAll('.day-tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.day-panel').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.day-tab').forEach(t=>{if(t.textContent.trim().startsWith(day.slice(0,3)))t.classList.add('active');});
+  // Match tab by onclick attribute for reliability
+  const activeTab=document.querySelector('.day-tab[onclick="switchDayTab(\'' + day + '\')"]');
+  if(activeTab)activeTab.classList.add('active');
   const panel=document.getElementById('panel-'+day);
   if(panel){panel.classList.add('active');panel.innerHTML=buildDayPanel(day);}
 }
@@ -1084,7 +1086,11 @@ function switchView(view,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('view-'+view).classList.add('active');
   btn.classList.add('active');
-  if(view==='producer'){loadRoster();loadShows();loadWeek();}
+  if(view==='producer'){
+    const ws=document.getElementById('week-start');
+    if(!ws.value)ws.value=nextMonday();
+    loadRoster();loadShows();loadWeek();
+  }
 }
 
 
