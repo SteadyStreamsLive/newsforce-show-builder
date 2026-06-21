@@ -219,6 +219,13 @@
     .show-ap-select{padding:5px 6px;font-size:12px;font-family:'Barlow',sans-serif;background:var(--dark3);border:1px solid var(--border2);border-radius:3px;color:var(--white);outline:none;}
     .show-remove-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0;line-height:1;}
     .show-remove-btn:hover{color:var(--red);}
+    .show-people-row{flex-basis:100%;display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:2px;}
+    .show-people-label{font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);}
+    .show-anchor-chip{padding:3px 10px;border-radius:99px;border:1px solid var(--border2);background:transparent;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;transition:all 0.15s;}
+    .show-anchor-chip:hover:not(.active){background:var(--dark3);color:var(--white);}
+    .show-anchor-chip.active{background:rgba(200,240,0,0.15);border-color:var(--accent);color:var(--accent);}
+    .show-guest-input{flex:1;min-width:140px;padding:5px 9px;font-size:12px;font-family:'Barlow',sans-serif;background:var(--dark3);border:1px solid var(--border2);border-radius:4px;color:var(--white);outline:none;}
+    .show-guest-input:focus{border-color:var(--accent);}
     @media(max-width:500px){.topbar{padding:0 1rem;gap:8px;}.logo-sub,.logo-divider{display:none;}.container{padding:1.25rem 1rem;}.producer-top{flex-direction:column;}.accent-btn{width:100%;text-align:center;}}
   </style>
 </head>
@@ -384,6 +391,19 @@
         <button class="ghost-btn" onclick="copyWeekSchedule()">Copy Week</button>
         <button class="ghost-btn" onclick="downloadWeekTXT()">Download TXT</button>
         <button class="ghost-btn" onclick="showWeekICS()">Download ICS</button>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:1.75rem;">Per-Anchor Schedule</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+      <select id="anchor-pick" onchange="renderAnchorOutput()" style="padding:7px 10px;font-size:13px;font-family:'Barlow',sans-serif;background:var(--dark2);border:1px solid var(--border2);border-radius:4px;color:var(--white);outline:none;min-width:160px;"></select>
+      <span style="font-size:12px;color:var(--muted);">Just this person's reads, live slots, and shows.</span>
+    </div>
+    <div id="anchor-output-wrap" style="display:none;">
+      <div class="day-schedule-output"><pre id="anchor-output-pre"></pre></div>
+      <div class="action-row" style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="ghost-btn" onclick="copyAnchorSchedule()">Copy</button>
+        <button class="ghost-btn" onclick="downloadAnchorTXT()">Download TXT</button>
       </div>
     </div>
   </div>
@@ -921,6 +941,11 @@ function buildDayPanel(day){
           <option value="AM" ${et&&parseInt(et.split(':')[0])<12?'selected':''}>AM</option>
           <option value="PM" ${!et||parseInt(et.split(':')[0])>=12?'selected':''}>PM</option>
         </select>
+      </div>
+      <div class="show-people-row">
+        <span class="show-people-label">On air</span>
+        ${roster.length?roster.map(n=>{const on=(ws.anchors||[]).includes(n);return `<button class="show-anchor-chip ${on?'active':''}" onclick="toggleShowAnchor('${s.name}','${day}','${n}',this)">${n}</button>`;}).join(''):'<span style="font-size:11px;color:var(--muted);">No roster anchors</span>'}
+        <input type="text" id="shg-${safeName}-${day}" value="${(ws.guests||[]).join(', ')}" placeholder="Guests (comma separated)" class="show-guest-input" onblur="setShowGuests('${s.name}','${day}',this.value)" />
       </div>`:''}
       <span class="show-locked-badge">Locked</span>
     </div>`;
@@ -1048,6 +1073,21 @@ function toggleShowDay(showName,day,checked){
 async function saveWeekShows(){
   const wm=getWeekMonday();if(!wm)return;
   try{await api({action:'saveWeekShows',weekMonday:wm,weekShows});}catch(e){}
+}
+
+function toggleShowAnchor(showName,day,anchorName,btn){
+  if(!weekShows[showName])weekShows[showName]={};
+  const arr=weekShows[showName].anchors||(weekShows[showName].anchors=[]);
+  const i=arr.indexOf(anchorName);
+  if(i>=0)arr.splice(i,1); else arr.push(anchorName);
+  if(btn)btn.classList.toggle('active');
+  saveWeekShows();
+}
+
+function setShowGuests(showName,day,val){
+  if(!weekShows[showName])weekShows[showName]={};
+  weekShows[showName].guests=val.split(',').map(g=>g.trim()).filter(Boolean);
+  saveWeekShows();
 }
 
 async function saveDay(day){
@@ -1216,7 +1256,7 @@ function getShowsForDay(day){
     const [eh,em]=ws.endTime.split(':').map(Number);
     const startMins=sh*60+sm, endMins=eh*60+em;
     if(isNaN(startMins)||isNaN(endMins)||endMins<=startMins)return;
-    result.push({name:s.name,startMins,endMins,techCheck:s.techCheck??30,opsPrep:s.opsPrep??30});
+    result.push({name:s.name,startMins,endMins,techCheck:s.techCheck??30,opsPrep:s.opsPrep??30,anchors:ws.anchors||[],guests:ws.guests||[]});
   });
   return result.sort((a,b)=>a.startMins-b.startMins);
 }
@@ -1228,6 +1268,7 @@ function generateSchedule(){
   const wm=getWeekMonday();if(!wm){toast('Select a week first.');return;}
   if(!submissions.length){toast('No submissions. Click Refresh first.');return;}
   window._calEventsByDay={};
+  window._anchorByDay={};
   DAYS.forEach(day=>generateDay(day,false));
   saveGlobalSettings();
   buildDayTabs();
@@ -1251,6 +1292,7 @@ function renderWeekOutput(){
   const pre=document.getElementById('week-output-pre');
   const empty=document.getElementById('week-output-empty');
   const txt=buildWeekText();
+  refreshAnchorPicker();
   if(!txt){
     if(wrap)wrap.style.display='none';
     if(empty)empty.style.display='block';
@@ -1260,6 +1302,68 @@ function renderWeekOutput(){
   if(wrap)wrap.style.display='block';
   if(empty)empty.style.display='none';
 }
+
+// ---- Per-anchor schedule ----
+function anchorNamesWithItems(){
+  const set=new Set();
+  const by=window._anchorByDay||{};
+  DAYS.forEach(day=>{ Object.keys(by[day]||{}).forEach(n=>set.add(n)); });
+  return [...set];
+}
+function refreshAnchorPicker(){
+  const sel=document.getElementById('anchor-pick');
+  if(!sel)return;
+  const prev=sel.value;
+  const names=anchorNamesWithItems().sort();
+  if(!names.length){ sel.innerHTML='<option value="">Generate the week first</option>'; renderAnchorOutput(); return; }
+  sel.innerHTML='<option value="">Select an anchor...</option>'+names.map(n=>`<option value="${n}">${n}</option>`).join('');
+  if(prev&&names.includes(prev))sel.value=prev;
+}
+function buildAnchorText(name){
+  if(!name)return '';
+  const by=window._anchorByDay||{};
+  const wm=getWeekMonday();
+  const parts=[];
+  DAYS.forEach((day,i)=>{
+    const items=(by[day]||{})[name];
+    if(items&&items.length){
+      const dt=wm?getDateForDay(wm,i):null;
+      const ds=dt?dt.toLocaleDateString('en-US',{month:'numeric',day:'numeric'}):'';
+      parts.push(day.toUpperCase()+' '+ds+'\n'+items.join('\n'));
+    }
+  });
+  if(!parts.length)return name+'\n(No reads, live slots, or shows this week.)';
+  return name.toUpperCase()+' \u2014 WEEK SCHEDULE\n\n'+parts.join('\n\n');
+}
+function renderAnchorOutput(){
+  const sel=document.getElementById('anchor-pick');
+  const wrap=document.getElementById('anchor-output-wrap');
+  const pre=document.getElementById('anchor-output-pre');
+  const name=sel?sel.value:'';
+  if(!name){ if(wrap)wrap.style.display='none'; return; }
+  if(pre)pre.textContent=buildAnchorText(name);
+  if(wrap)wrap.style.display='block';
+}
+function copyAnchorSchedule(){
+  const sel=document.getElementById('anchor-pick');
+  const name=sel?sel.value:'';
+  const txt=buildAnchorText(name);
+  if(txt)navigator.clipboard.writeText(txt).then(()=>toast(name+' schedule copied!'));
+}
+function downloadAnchorTXT(){
+  const sel=document.getElementById('anchor-pick');
+  const name=sel?sel.value:'';
+  if(!name)return;
+  const wm=getWeekMonday();
+  const txt=buildAnchorText(name);
+  const blob=new Blob([txt],{type:'text/plain;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='NewsForce_'+name.replace(/\s/g,'_')+'_'+(wm||'week')+'.txt';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  toast('Downloaded!');
+}
+
 function copyWeekSchedule(){
   const txt=buildWeekText();
   if(txt)navigator.clipboard.writeText(txt).then(()=>toast('Full week copied!'));
@@ -1291,6 +1395,9 @@ function generateDay(day,rebuildTabs=true){
   const wm=getWeekMonday();if(!wm)return;
   if(!submissions.length&&!offDays.includes(day)){toast('No submissions. Click Refresh first.');return;}
   window._calEventsByDay=window._calEventsByDay||{};
+  window._anchorByDay=window._anchorByDay||{};
+  window._anchorByDay[day]={};
+  const recA=(name,line)=>{ if(!name)return; (window._anchorByDay[day][name]=window._anchorByDay[day][name]||[]).push(line); };
   const di=DAYS.indexOf(day);
   const dt=getDateForDay(wm,di);
   const ds=dt.toLocaleDateString('en-US',{month:'numeric',day:'numeric'});
@@ -1331,6 +1438,7 @@ function generateDay(day,rebuildTabs=true){
           ? anchor.name+' | Live to Tape Test / Prep: '+fmt(ss)+' - '+fmt(pe)+' ET ('+fmtPT(ss)+' - '+fmtPT(pe)+' PT) Additional Read: '+fmt(pe)+' - '+fmt(ae)+' ET Read: '+fmt(ae)+' - '+fmt(re)+' ET ('+fmtPT(ae)+' - '+fmtPT(re)+' PT)'
           : anchor.name+' | Live to Tape Test / Prep: '+fmt(ss)+' - '+fmt(pe)+' ET ('+fmtPT(ss)+' - '+fmtPT(pe)+' PT) Read: '+fmt(pe)+' - '+fmt(re)+' ET ('+fmtPT(pe)+' - '+fmtPT(re)+' PT)';
         dayEvents.push({type:'anchor',startMins:ss,endMins:re,label});
+        recA(anchor.name,label);
         calEvents.push({title:anchor.name+' - Live to Tape',start:toISO(ss),end:toISO(re),description:'Tech Check + Read',color:'radicchio'});
         cur=re;
         const rem=avail.slice(idx+1);
@@ -1363,8 +1471,18 @@ function generateDay(day,rebuildTabs=true){
       dayEvents.push({type:'show-tech',startMins:techStart,endMins:show.startMins,label:show.name+' | Tech Check: '+fmt(techStart)+' - '+fmt(show.startMins)+' ET ('+fmtPT(techStart)+' - '+fmtPT(show.startMins)+' PT)'});
       calEvents.push({title:show.name+' - Tech Check',start:toISO(techStart),end:toISO(show.startMins),description:'Show Tech Check',color:'banana'});
     }
-    dayEvents.push({type:'show',startMins:show.startMins,endMins:show.endMins,label:'[SHOW] '+show.name+': '+fmt(show.startMins)+' - '+fmt(show.endMins)+' ET ('+fmtPT(show.startMins)+' - '+fmtPT(show.endMins)+' PT) [LOCKED]'});
-    calEvents.push({title:show.name,start:toISO(show.startMins),end:toISO(show.endMins),description:'NewsForce Show',color:'peacock'});
+    const people=[];
+    if(show.anchors&&show.anchors.length)people.push('Anchors: '+show.anchors.join(', '));
+    if(show.guests&&show.guests.length)people.push('Guests: '+show.guests.join(', '));
+    const peopleStr=people.length?' \u2014 '+people.join(' | '):'';
+    const showLabel='[SHOW] '+show.name+': '+fmt(show.startMins)+' - '+fmt(show.endMins)+' ET ('+fmtPT(show.startMins)+' - '+fmtPT(show.endMins)+' PT) [LOCKED]'+peopleStr;
+    dayEvents.push({type:'show',startMins:show.startMins,endMins:show.endMins,label:showLabel});
+    calEvents.push({title:show.name,start:toISO(show.startMins),end:toISO(show.endMins),description:('NewsForce Show'+(people.length?' \u2014 '+people.join(' | '):'')),color:'peacock'});
+    // Put this show on each assigned anchor's personal schedule
+    (show.anchors||[]).forEach(an=>{
+      const techNote=show.techCheck>0?' (tech check '+fmt(techStart)+', ops prep '+fmt(opsStart)+')':'';
+      recA(an,'SHOW \u2014 '+show.name+': '+fmt(show.startMins)+' - '+fmt(show.endMins)+' ET ('+fmtPT(show.startMins)+' - '+fmtPT(show.endMins)+' PT)'+techNote);
+    });
   });
 
   dayEvents.sort((a,b)=>a.startMins-b.startMins);
@@ -1383,6 +1501,7 @@ function generateDay(day,rebuildTabs=true){
         out+='\n'+anchor.name+' | Live Tech Check: '+fmt(TECH_START)+' - '+fmt(COUNTDOWN)+' ET ('+fmtPT(TECH_START)+' - '+fmtPT(COUNTDOWN)+' PT)\n';
         out+='Live Stream Start: '+fmt(COUNTDOWN)+' ET ('+fmtPT(COUNTDOWN)+' PT)\n';
         out+=anchor.name+' | LIVE: '+fmt(LIVE_START)+' - '+fmt(LIVE_START+READ)+' ET ('+fmtPT(LIVE_START)+' - '+fmtPT(LIVE_START+READ)+' PT)\n';
+        recA(anchor.name,anchor.name+' | LIVE: '+fmt(LIVE_START)+' - '+fmt(LIVE_START+READ)+' ET ('+fmtPT(LIVE_START)+' - '+fmtPT(LIVE_START+READ)+' PT)');
         calEvents.push({title:anchor.name+' - Live Tech Check',start:toISO(TECH_START),end:toISO(COUNTDOWN),description:'Live Tech Check',color:'radicchio'});
         calEvents.push({title:'Live Stream Start',start:toISO(COUNTDOWN),end:toISO(LIVE_START),description:'Live Stream Start',color:'grape'});
         calEvents.push({title:anchor.name+' - LIVE',start:toISO(LIVE_START),end:toISO(LIVE_START+READ),description:'LIVE Broadcast',color:'tomato'});
@@ -1391,6 +1510,7 @@ function generateDay(day,rebuildTabs=true){
         const myLiveStart=liveEnd,myTechStart=myLiveStart-liveShowPrepTime,myLiveEnd=myLiveStart+READ;
         out+='\n'+anchor.name+' | Live Tech Check: '+fmt(myTechStart)+' - '+fmt(myLiveStart)+' ET\n';
         out+=anchor.name+' | LIVE: '+fmt(myLiveStart)+' - '+fmt(myLiveEnd)+' ET\n';
+        recA(anchor.name,anchor.name+' | LIVE: '+fmt(myLiveStart)+' - '+fmt(myLiveEnd)+' ET ('+fmtPT(myLiveStart)+' - '+fmtPT(myLiveEnd)+' PT)');
         calEvents.push({title:anchor.name+' - LIVE',start:toISO(myLiveStart),end:toISO(myLiveEnd),description:'LIVE Broadcast',color:'tomato'});
         liveEnd=myLiveEnd;
       }
