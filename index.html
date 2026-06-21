@@ -260,6 +260,7 @@
   </div>
   <span class="live-badge"><span class="live-dot"></span>Live</span>
   <button class="nav-btn active" onclick="switchView('form',this)">Talent View</button>
+  <button class="nav-btn" id="shows-nav-btn" onclick="requestShows(this)">Shows</button>
   <button class="nav-btn" id="producer-nav-btn" onclick="requestProducer(this)">Producer</button>
 </div>
 
@@ -361,28 +362,6 @@
         </select>
       </div>
     </div>
-    <div class="section-label">Shows</div>
-    <div id="shows-catalog-wrap" style="margin-bottom:1.5rem;">
-      <div id="shows-catalog-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-        <input type="text" id="show-name-input" placeholder="Show name..." style="padding:7px 10px;font-size:13px;font-family:'Barlow',sans-serif;background:var(--dark2);border:1px solid var(--border2);border-radius:4px;color:var(--white);outline:none;flex:1;min-width:140px;" />
-        <div class="mini-stepper">
-          <span class="mini-stepper-label">Tech</span>
-          <button class="step-btn" onclick="stepField('show-tech-input',-15,0)" tabindex="-1">&minus;</button>
-          <input type="text" id="show-tech-input" value="30" readonly />
-          <button class="step-btn" onclick="stepField('show-tech-input',15,0)" tabindex="-1">+</button>
-          <span class="mini-stepper-unit">m</span>
-        </div>
-        <div class="mini-stepper">
-          <span class="mini-stepper-label">Ops</span>
-          <button class="step-btn" onclick="stepField('show-ops-input',-15,0)" tabindex="-1">&minus;</button>
-          <input type="text" id="show-ops-input" value="30" readonly />
-          <button class="step-btn" onclick="stepField('show-ops-input',15,0)" tabindex="-1">+</button>
-          <span class="mini-stepper-unit">m</span>
-        </div>
-        <button class="ghost-btn" onclick="addShow()">Add Show</button>
-      </div>
-    </div>
     <div class="section-label">Anchor Roster</div>
     <div class="roster-chips" id="roster-chips"></div>
     <div class="roster-input-row">
@@ -407,7 +386,37 @@
         <button class="ghost-btn" onclick="showWeekICS()">Download ICS</button>
       </div>
     </div>
-  </div></div>
+  </div>
+
+  <!-- SHOWS VIEW -->
+  <div class="view" id="view-shows">
+    <div class="hero-strip">
+      <h1>Shows</h1>
+      <p>Your permanent show catalog. These stay the same every week &mdash; set each show's tech check and ops prep here once. You'll pick which days they air and their times on the Producer schedule.</p>
+    </div>
+    <div class="section-label">Add a Show</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:1.75rem;">
+      <input type="text" id="show-name-input" placeholder="Show name..." onkeydown="if(event.key==='Enter')addShow()" style="padding:9px 12px;font-size:14px;font-family:'Barlow',sans-serif;background:var(--dark2);border:1px solid var(--border2);border-radius:4px;color:var(--white);outline:none;flex:1;min-width:160px;" />
+      <div class="mini-stepper">
+        <span class="mini-stepper-label">Tech</span>
+        <button class="step-btn" onclick="stepField('show-tech-input',-15,0)" tabindex="-1">&minus;</button>
+        <input type="text" id="show-tech-input" value="30" readonly />
+        <button class="step-btn" onclick="stepField('show-tech-input',15,0)" tabindex="-1">+</button>
+        <span class="mini-stepper-unit">m</span>
+      </div>
+      <div class="mini-stepper">
+        <span class="mini-stepper-label">Ops</span>
+        <button class="step-btn" onclick="stepField('show-ops-input',-15,0)" tabindex="-1">&minus;</button>
+        <input type="text" id="show-ops-input" value="30" readonly />
+        <button class="step-btn" onclick="stepField('show-ops-input',15,0)" tabindex="-1">+</button>
+        <span class="mini-stepper-unit">m</span>
+      </div>
+      <button class="accent-btn" onclick="addShow()">Add Show</button>
+    </div>
+    <div class="section-label">Your Shows</div>
+    <div id="shows-catalog-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+  </div>
+  </div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -442,22 +451,25 @@ function switchView(view,btn){
   if(view==='producer'){buildOffDayGrid();loadRoster();loadSubmissions();}
 }
 
-function requestProducer(btn){
-  if(producerUnlocked){switchView('producer',btn);return;}
+function requestProtected(view,btn){
+  if(producerUnlocked){switchView(view,btn);return;}
+  window._pendingView=view;
+  window._pendingBtn=btn;
   document.getElementById('pw-screen').style.display='flex';
   document.getElementById('pw-input').value='';
   document.getElementById('pw-error').textContent='';
   document.getElementById('pw-input').classList.remove('error');
   setTimeout(()=>document.getElementById('pw-input').focus(),100);
-  window._pendingProducerBtn=btn;
 }
+function requestProducer(btn){requestProtected('producer',btn);}
+function requestShows(btn){requestProtected('shows',btn);}
 
 function checkPassword(){
   const val=document.getElementById('pw-input').value;
   if(val==='0000'){
     producerUnlocked=true;
     document.getElementById('pw-screen').style.display='none';
-    switchView('producer',window._pendingProducerBtn);
+    switchView(window._pendingView||'producer',window._pendingBtn);
   } else {
     document.getElementById('pw-input').classList.add('error');
     document.getElementById('pw-error').textContent='Incorrect password. Please try again.';
@@ -1112,6 +1124,7 @@ function adjustShow(name,field,delta){
   s[field]=v;
   renderShowsCatalog();
   saveShows();
+  buildDayTabs();
 }
 
 function addShow(){
@@ -1126,6 +1139,7 @@ function addShow(){
   document.getElementById('show-ops-input').value='30';
   renderShowsCatalog();
   saveShows();
+  buildDayTabs();
   toast('Show added!');
 }
 
@@ -1134,6 +1148,7 @@ function removeShow(name){
   delete weekShows[name];
   renderShowsCatalog();
   saveShows();
+  buildDayTabs();
 }
 
 function renderShowsCatalog(){
@@ -1413,6 +1428,9 @@ function switchView(view,btn){
     const ws=document.getElementById('week-start');
     if(!ws.value)ws.value=nextMonday();
     loadRoster();loadShows();loadWeek();
+  }
+  if(view==='shows'){
+    loadShows();
   }
 }
 
