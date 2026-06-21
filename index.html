@@ -526,30 +526,24 @@ function getDateForDay(weekMonday, dayIdx){
 
 async function loadWeek() {
   const wm=getWeekMonday(); if(!wm) return;
-  try {
-    const [subRes,wdRes,showRes] = await Promise.all([
-      api({action:'getSubmissions',weekMonday:wm}),
-      api({action:'getWeekData',weekMonday:wm}),
-      api({action:'getWeekShows',weekMonday:wm})
-    ]);
-    submissions=subRes.submissions||[];
-    weekData=wdRes.success?(wdRes.weekData||{}):{};
-    weekShows=showRes.success?(showRes.weekShows||{}):{};
-    const gs=weekData._global||{};
-    if(gs.liveStartTime){liveStartTime=gs.liveStartTime;const el=document.getElementById('live-start-time');if(el)el.value=liveStartTime;}
-    if(gs.liveShowPrepTime){liveShowPrepTime=gs.liveShowPrepTime;const el=document.getElementById('live-prep-time');if(el)el.value=liveShowPrepTime;}
-    if(gs.offDays) offDays=gs.offDays;
-    if(gs.dayScheduleStart) Object.assign(dayScheduleStart,gs.dayScheduleStart);
-    if(gs.readTypes) Object.assign(readTypes,gs.readTypes);
-    if(gs.additionalReads) Object.assign(additionalReads,gs.additionalReads);
-    if(gs.liveAnchors) Object.entries(gs.liveAnchors).forEach(([k,v])=>{liveAnchors[k]=new Set(v);});
-    if(gs.dayOrders) Object.assign(dayOrders,gs.dayOrders);
-    if(gs.dayExclusions) Object.entries(gs.dayExclusions).forEach(([k,v])=>{dayExclusions[k]=new Set(v);});
-  } catch(e){ submissions=[]; weekData={}; }
+  try { const r=await api({action:'getSubmissions',weekMonday:wm}); submissions=r.submissions||[]; } catch(e){ submissions=[]; }
+  try { const r=await api({action:'getWeekData',weekMonday:wm}); if(r.success&&r.weekData) weekData=r.weekData; } catch(e){}
+  try { const r=await api({action:'getWeekShows',weekMonday:wm}); if(r.success&&r.weekShows) weekShows=r.weekShows; } catch(e){}
+  const gs=weekData._global||{};
+  if(gs.liveStartTime){liveStartTime=gs.liveStartTime;const el=document.getElementById('live-start-time');if(el)el.value=liveStartTime;}
+  if(gs.liveShowPrepTime){liveShowPrepTime=gs.liveShowPrepTime;const el=document.getElementById('live-prep-time');if(el)el.value=liveShowPrepTime;}
+  if(gs.offDays) offDays=gs.offDays;
+  if(gs.dayScheduleStart) Object.assign(dayScheduleStart,gs.dayScheduleStart);
+  if(gs.readTypes) Object.assign(readTypes,gs.readTypes);
+  if(gs.additionalReads) Object.assign(additionalReads,gs.additionalReads);
+  if(gs.liveAnchors) Object.entries(gs.liveAnchors).forEach(([k,v])=>{liveAnchors[k]=new Set(v);});
+  if(gs.dayOrders) Object.assign(dayOrders,gs.dayOrders);
+  if(gs.dayExclusions) Object.entries(gs.dayExclusions).forEach(([k,v])=>{dayExclusions[k]=new Set(v);});
   renderMissing();
   buildDayTabs();
   renderShowsCatalog();
 }
+
 
 async function saveGlobalSettings(){
   const wm=getWeekMonday(); if(!wm) return;
