@@ -394,6 +394,7 @@
       <h1>Shows</h1>
       <p>Your permanent show catalog. These stay the same every week &mdash; set each show's tech check and ops prep here once. You'll pick which days they air and their times on the Producer schedule.</p>
     </div>
+    <div id="shows-status" style="display:none;background:rgba(255,159,10,0.1);border:1px solid rgba(255,159,10,0.35);border-radius:6px;padding:10px 14px;margin-bottom:1.25rem;font-size:13px;color:var(--amber);line-height:1.5;"></div>
     <div class="section-label">Add a Show</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:1.75rem;">
       <input type="text" id="show-name-input" placeholder="Show name..." onkeydown="if(event.key==='Enter')addShow()" style="padding:9px 12px;font-size:14px;font-family:'Barlow',sans-serif;background:var(--dark2);border:1px solid var(--border2);border-radius:4px;color:var(--white);outline:none;flex:1;min-width:160px;" />
@@ -1099,15 +1100,25 @@ function showDayICS(day){
 // SHOWS
 // ============================================================
 async function loadShows(){
-  try{
-    const r=await api({action:'getShows'});
-    if(r.success&&r.shows)showsCatalog=r.shows;
-  }catch(e){}
+  let r;
+  try{ r=await api({action:'getShows'}); }catch(e){ r={success:false,error:String(e)}; }
+  const status=document.getElementById('shows-status');
+  if(r&&r.success){
+    if(Array.isArray(r.shows))showsCatalog=r.shows;
+    if(status)status.style.display='none';
+  } else {
+    // Backend couldn't return shows (script not deployed / wrong action). Keep what we have, warn.
+    if(status){
+      status.style.display='block';
+      status.innerHTML='&#9888; Can\u2019t reach the shows database (server said: '+((r&&r.error)||'no response')+'). Your Apps Script needs to be redeployed \u2014 until then, shows you add won\u2019t be saved.';
+    }
+  }
   renderShowsCatalog();
 }
 
 async function saveShows(){
-  try{await api({action:'saveShows',shows:showsCatalog});}catch(e){}
+  try{ return await api({action:'saveShows',shows:showsCatalog}); }
+  catch(e){ return {success:false,error:String(e)}; }
 }
 
 function stepField(id,delta,min){
@@ -1117,17 +1128,18 @@ function stepField(id,delta,min){
   el.value=v;
 }
 
-function adjustShow(name,field,delta){
+async function adjustShow(name,field,delta){
   const s=showsCatalog.find(x=>x.name===name);if(!s)return;
   let v=(parseInt(s[field])||0)+delta;
   if(v<0)v=0;
   s[field]=v;
   renderShowsCatalog();
-  saveShows();
   buildDayTabs();
+  const res=await saveShows();
+  if(!res||!res.success)toast('\u26a0 Change not saved to server. Redeploy your Apps Script.',5000);
 }
 
-function addShow(){
+async function addShow(){
   const name=document.getElementById('show-name-input').value.trim();
   const tech=parseInt(document.getElementById('show-tech-input').value);
   const ops=parseInt(document.getElementById('show-ops-input').value);
@@ -1140,7 +1152,21 @@ function addShow(){
   renderShowsCatalog();
   saveShows();
   buildDayTabs();
-  toast('Show added!');
+  // Save, then verify it actually persisted on the server
+  await saveShows();
+  let persisted=false;
+  try{
+    const chk=await api({action:'getShows'});
+    if(chk&&chk.success&&Array.isArray(chk.shows))persisted=chk.shows.some(x=>(x.name||'').toLowerCase()===name.toLowerCase());
+  }catch(e){}
+  if(persisted){
+    toast('Show added & saved.');
+    const status=document.getElementById('shows-status');if(status)status.style.display='none';
+  } else {
+    toast('\u26a0 Added on screen, but the server did NOT save it \u2014 it will vanish on refresh. Redeploy your Apps Script, then re-add.',7000);
+    const status=document.getElementById('shows-status');
+    if(status){status.style.display='block';status.innerHTML='&#9888; Shows are not being saved. Your Apps Script needs to be redeployed (Deploy \u2192 Manage deployments \u2192 edit \u2192 New version). Until then, anything you add here disappears on refresh.';}
+  }
 }
 
 function removeShow(name){
