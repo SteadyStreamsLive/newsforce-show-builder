@@ -163,6 +163,9 @@
     .live-btn{padding:2px 8px;border-radius:3px;border:1px solid var(--border2);background:transparent;font-size:10px;font-weight:700;color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;transition:all 0.15s;letter-spacing:0.05em;}
     .live-btn.active{background:rgba(255,159,10,0.15);border-color:rgba(255,159,10,0.4);color:var(--amber);}
     .live-btn:hover:not(.active){background:var(--dark3);color:var(--white);}
+    .add-read-select{padding:2px 6px;border-radius:3px;border:1px solid var(--border2);background:var(--dark2);font-size:10px;font-weight:600;color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;outline:none;transition:all 0.15s;}
+    .add-read-select.active{border-color:var(--accent);color:var(--accent);}
+    .add-read-select option{background:var(--dark2);color:var(--white);}
     .exclude-btn{background:none;border:1px solid var(--border2);border-radius:50%;width:16px;height:16px;font-size:10px;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;line-height:1;padding:0;}
     .exclude-btn:hover{background:rgba(255,59,48,0.15);border-color:var(--red);color:var(--red);}
     .confirm-exclude{background:var(--dark3);border:1px solid var(--border2);border-radius:6px;padding:8px 10px;margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--off-white);}
@@ -387,6 +390,8 @@ const SCRIPT_URL="https://script.google.com/a/macros/steadystreamslive.com/s/AKf
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const TZ_OFF={ET:0,CT:1,MT:2,PT:3,GMT:-5,CET:-6,IST:-10.5,AEST:-16};
 let submissions=[],blockCounts={},roster=[],offDays=[],readTypes={},dayOrders={},dayExclusions={},liveAnchors={},dayScheduleStart={},liveStartTime='17:00',producerUnlocked=false;
+// --- State that was missing from this file (restored) ---
+let weekData={},weekShows={},additionalReads={},showsCatalog=[],liveShowPrepTime=30,currentDay='Monday';
 
 function toast(msg,ms=2500){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),ms);}
 async function api(payload){const r=await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify(payload)});return r.json();}
@@ -604,6 +609,190 @@ function renderMissing(){
 // ============================================================
 // DAY TABS
 // ============================================================
+// ============================================================
+// RESTORED ENGINE  (these functions were missing from this file)
+//   - time/timezone helpers, availability windows
+//   - smart ordering engine (getOrderedAvail)
+//   - per-anchor read/live/exclusion resolvers
+//   - anchor detail panel + drag-to-reorder handlers
+// ============================================================
+function toET(t,tz){const off=TZ_OFF[tz]||0,[h,m]=t.split(':').map(Number);let eh=h+off;if(eh<0)eh+=24;if(eh>=24)eh-=24;return `${String(eh).padStart(2,'0')}:${String(m).padStart(2,'0')}`;}
+function toMins(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
+function fmt(m){const h=Math.floor(m/60),mi=m%60,ap=h>=12?'PM':'AM',h12=h>12?h-12:(h===0?12:h);return `${h12}:${String(mi).padStart(2,'0')} ${ap}`;}
+function fmtPT(m){return fmt(m-180);}
+
+function getScheduleStart(day){
+  if(day&&dayScheduleStart[day]){const[h,m]=dayScheduleStart[day].split(':').map(Number);return h*60+m;}
+  return 11*60; // default 11:00 AM ET
+}
+function setDayScheduleStart(day,val){
+  if(val==='11:00'){delete dayScheduleStart[day];}else{dayScheduleStart[day]=val;}
+  saveGlobalSettings();
+  const p=document.getElementById('panel-'+day);if(p)p.innerHTML=buildDayPanel(day);
+}
+
+function getWindows(anchor,day){
+  const blocks=anchor.days[day];
+  if(!blocks||!blocks.length||blocks[0].type==='off')return null;
+  const schedStart=getScheduleStart(day);
+  let wins=[{start:schedStart,end:19*60}];
+  blocks.forEach(b=>{
+    if(b.type==='all')return;
+    if(b.type==='before'){const c=toMins(toET(b.before,anchor.tz));wins=wins.map(w=>({...w,end:Math.min(w.end,c)})).filter(w=>w.end>w.start);}
+    if(b.type==='unavailable'){const f=toMins(toET(b.from,anchor.tz)),t=toMins(toET(b.to,anchor.tz));const nw=[];wins.forEach(w=>{if(f>w.start)nw.push({start:w.start,end:Math.min(f,w.end)});if(t<w.end)nw.push({start:Math.max(t,w.start),end:w.end});});wins=nw.filter(w=>w.end>w.start);}
+  });
+  return wins.length?wins:null;
+}
+
+function isExcluded(anchorName,day){
+  return dayExclusions[day]&&dayExclusions[day].has(anchorName);
+}
+function isAnchorLive(anchorName,day){
+  return liveAnchors[day]&&liveAnchors[day].has(anchorName);
+}
+function getDayRead(anchorName,day){
+  if(isExcluded(anchorName,day))return 'off';
+  if(readTypes[anchorName]&&readTypes[anchorName][day]&&readTypes[anchorName][day]!=='off')return readTypes[anchorName][day];
+  return 'full';
+}
+function setDayRead(anchorName,day,type,btn){
+  if(!readTypes[anchorName])readTypes[anchorName]={};
+  readTypes[anchorName][day]=type;
+  if(type==='off'){
+    if(!dayExclusions[day])dayExclusions[day]=new Set();
+    dayExclusions[day].add(anchorName);
+  } else {
+    if(dayExclusions[day])dayExclusions[day].delete(anchorName);
+  }
+  saveGlobalSettings();
+  const p=document.getElementById('panel-'+day);if(p)p.innerHTML=buildDayPanel(day);
+}
+function toggleLive(anchorName,day,btn){
+  if(!liveAnchors[day])liveAnchors[day]=new Set();
+  if(liveAnchors[day].has(anchorName)){
+    liveAnchors[day].delete(anchorName);
+  } else {
+    const anchor=submissions.find(a=>a.name===anchorName);
+    if(!anchor){toast(anchorName+' has no submission for this week');return;}
+    const wins=getWindows(anchor,day);
+    if(!wins){toast(anchorName+' is not available on '+day+' — cannot set LIVE');return;}
+    liveAnchors[day].add(anchorName);
+    if(readTypes[anchorName]&&readTypes[anchorName][day]==='off'){readTypes[anchorName][day]='full';}
+    if(dayExclusions[day])dayExclusions[day].delete(anchorName);
+  }
+  saveGlobalSettings();
+  const p=document.getElementById('panel-'+day);if(p)p.innerHTML=buildDayPanel(day);
+}
+
+function getOrderedAvail(day){
+  const avail=submissions.filter(a=>getWindows(a,day));
+  if(!avail.length) return avail;
+
+  // If producer has manually set an order, respect it
+  if(dayOrders[day]&&dayOrders[day].length){
+    const order=dayOrders[day];
+    return [...avail].sort((a,b)=>{
+      const ai=order.indexOf(a.name),bi=order.indexOf(b.name);
+      if(ai===-1&&bi===-1)return 0; if(ai===-1)return 1; if(bi===-1)return -1;
+      return ai-bi;
+    });
+  }
+
+  // Auto-optimize: fit the most anchors, ending earliest.
+  // European anchors (CET, GMT) get priority for earlier slots.
+  const EU_TZ=['CET','GMT'];
+  const euroFirst=[...avail].sort((a,b)=>{
+    const aEu=EU_TZ.includes(a.tz)?0:1, bEu=EU_TZ.includes(b.tz)?0:1;
+    return aEu-bEu;
+  });
+  function simulateDay(orderedAnchors){
+    const schedStart=getScheduleStart(day)+60;
+    let cur=schedStart, fitted=0, endTime=schedStart;
+    for(let i=0;i<orderedAnchors.length;i++){
+      const anchor=orderedAnchors[i];
+      const wins=getWindows(anchor,day);
+      const isHalf=getDayRead(anchor.name,day)==='half';
+      const READ=isHalf?30:60,PREP=30,TOT=PREP+READ,BRK=i<orderedAnchors.length-1?30:0;
+      let placed=false;
+      for(const w of wins){
+        const ss=Math.max(cur,w.start);
+        if(ss+TOT<=w.end&&ss+TOT<=19*60){cur=ss+TOT+BRK; endTime=ss+TOT; fitted++; placed=true; break;}
+      }
+      if(!placed) cur=Math.max(cur, ...wins.map(w=>w.end));
+    }
+    return {fitted, endTime};
+  }
+  function permutations(arr){
+    if(arr.length<=1) return [arr];
+    const result=[];
+    arr.forEach((item,i)=>{const rest=arr.filter((_,j)=>j!==i);permutations(rest).forEach(p=>result.push([item,...p]));});
+    return result;
+  }
+  let bestOrder=avail, bestFitted=0, bestEnd=19*60;
+  if(avail.length<=5){
+    permutations(euroFirst).forEach(perm=>{
+      const {fitted,endTime}=simulateDay(perm);
+      if(fitted>bestFitted||(fitted===bestFitted&&endTime<bestEnd)){bestFitted=fitted; bestEnd=endTime; bestOrder=perm;}
+    });
+  } else {
+    bestOrder=[...euroFirst].sort((a,b)=>{
+      const aEu=EU_TZ.includes(a.tz)?0:1, bEu=EU_TZ.includes(b.tz)?0:1;
+      if(aEu!==bEu) return aEu-bEu;
+      const aw=getWindows(a,day),bw=getWindows(b,day);
+      const aStart=aw?Math.max(getScheduleStart(day)+60,aw[0].start):19*60;
+      const bStart=bw?Math.max(getScheduleStart(day)+60,bw[0].start):19*60;
+      return aStart-bStart;
+    });
+  }
+  return bestOrder;
+}
+
+function describeSubmissionDay(anchor,day){
+  const blocks=anchor.days[day];
+  if(!blocks||!blocks.length||blocks[0].type==='off') return {text:'Day off',off:true};
+  const parts=blocks.map(b=>{
+    if(b.type==='all') return 'Available all day'+(b.notes?' ('+b.notes+')':'');
+    if(b.type==='before') return 'Available until '+b.before+' '+anchor.tz+(b.notes?' ('+b.notes+')':'');
+    if(b.type==='unavailable') return 'Unavailable '+b.from+'\u2013'+b.to+' '+anchor.tz+(b.notes?' ('+b.notes+')':'');
+    return '';
+  }).filter(Boolean);
+  return {text:parts.join(' | '),off:false};
+}
+function buildDetailHTML(anchor){
+  return DAYS.map(day=>{
+    const d=describeSubmissionDay(anchor,day);
+    return `<div class="detail-row"><span class="detail-day">${day.slice(0,3)}</span><span class="${d.off?'detail-off':'detail-val'}">${d.text}</span></div>`;
+  }).join('');
+}
+function toggleDetail(anchorName,day){
+  const safe=anchorName.replace(/\s/g,'_');
+  const panel=document.getElementById(`detail-${day}-${safe}`);
+  const btn=document.getElementById(`pill-${day}-${safe}`);
+  if(!panel)return;
+  const isOpen=panel.classList.contains('open');
+  document.querySelectorAll(`[id^="detail-${day}-"]`).forEach(p=>p.classList.remove('open'));
+  document.querySelectorAll(`[id^="pill-${day}-"]`).forEach(b=>b.classList.remove('expanded'));
+  if(!isOpen){panel.classList.add('open');if(btn)btn.classList.add('expanded');}
+}
+
+// Drag-to-reorder anchors within a day
+let dragSrc=null,dragDay=null;
+function onDragStart(e,day,name){dragSrc=name;dragDay=day;e.currentTarget.classList.add('dragging');e.dataTransfer.effectAllowed='move';}
+function onDragEnd(e){e.currentTarget.classList.remove('dragging');document.querySelectorAll('.day-anchor-row').forEach(r=>r.classList.remove('drag-over'));}
+function onDragOver(e,day,name){if(dragDay!==day||dragSrc===name)return;e.preventDefault();e.currentTarget.classList.add('drag-over');}
+function onDragLeave(e){e.currentTarget.classList.remove('drag-over');}
+function onDrop(e,day,name){
+  e.currentTarget.classList.remove('drag-over');
+  if(dragDay!==day||dragSrc===name)return;
+  const avail=getOrderedAvail(day),names=avail.map(a=>a.name);
+  const fromIdx=names.indexOf(dragSrc),toIdx=names.indexOf(name);
+  if(fromIdx===-1||toIdx===-1){dragSrc=null;dragDay=null;return;}
+  names.splice(fromIdx,1);names.splice(toIdx,0,dragSrc);
+  dayOrders[day]=names;dragSrc=null;dragDay=null;
+  saveGlobalSettings();
+  const p=document.getElementById('panel-'+day);if(p)p.innerHTML=buildDayPanel(day);
+}
+
 function buildDayTabs(){
   const bar=document.getElementById('day-tabs-bar');
   const panels=document.getElementById('day-tab-panels');
