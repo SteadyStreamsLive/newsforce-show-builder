@@ -208,6 +208,17 @@
     .show-locked-badge{background:rgba(255,159,10,0.12);border:1px solid rgba(255,159,10,0.3);border-radius:3px;padding:2px 7px;font-size:10px;font-weight:700;color:var(--amber);letter-spacing:0.05em;text-transform:uppercase;}
     .show-week-row{display:flex;align-items:center;gap:10px;background:var(--dark2);border:1px solid var(--border);border-radius:4px;padding:8px 12px;margin-bottom:6px;flex-wrap:wrap;}
     .show-week-name{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--accent);min-width:120px;}
+    .mini-stepper{display:inline-flex;align-items:center;gap:4px;background:var(--dark3);border:1px solid var(--border2);border-radius:4px;padding:2px 5px;}
+    .mini-stepper-label{font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-right:1px;}
+    .mini-stepper-unit{font-size:10px;color:var(--muted);}
+    .mini-stepper input{width:26px;text-align:center;background:transparent;border:none;color:var(--white);font-size:12px;font-weight:600;font-family:'Barlow',sans-serif;outline:none;padding:0;}
+    .step-btn{width:18px;height:18px;border-radius:3px;border:1px solid var(--border2);background:var(--dark2);color:var(--off-white);font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:all 0.15s;}
+    .step-btn:hover{border-color:var(--accent);color:var(--accent);}
+    .show-time-input{width:52px;padding:5px 7px;font-size:12px;font-family:'Barlow',sans-serif;background:var(--dark3);border:1px solid var(--border2);border-radius:3px;color:var(--white);outline:none;text-align:center;}
+    .show-time-input:focus{border-color:var(--accent);}
+    .show-ap-select{padding:5px 6px;font-size:12px;font-family:'Barlow',sans-serif;background:var(--dark3);border:1px solid var(--border2);border-radius:3px;color:var(--white);outline:none;}
+    .show-remove-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0;line-height:1;}
+    .show-remove-btn:hover{color:var(--red);}
     @media(max-width:500px){.topbar{padding:0 1rem;gap:8px;}.logo-sub,.logo-divider{display:none;}.container{padding:1.25rem 1rem;}.producer-top{flex-direction:column;}.accent-btn{width:100%;text-align:center;}}
   </style>
 </head>
@@ -355,7 +366,20 @@
       <div id="shows-catalog-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
         <input type="text" id="show-name-input" placeholder="Show name..." style="padding:7px 10px;font-size:13px;font-family:'Barlow',sans-serif;background:var(--dark2);border:1px solid var(--border2);border-radius:4px;color:var(--white);outline:none;flex:1;min-width:140px;" />
-        <input type="number" id="show-duration-input" placeholder="Duration (min)" min="15" max="480" style="padding:7px 10px;font-size:13px;font-family:'Barlow',sans-serif;background:var(--dark2);border:1px solid var(--border2);border-radius:4px;color:var(--white);outline:none;width:140px;" />
+        <div class="mini-stepper">
+          <span class="mini-stepper-label">Tech</span>
+          <button class="step-btn" onclick="stepField('show-tech-input',-15,0)" tabindex="-1">&minus;</button>
+          <input type="text" id="show-tech-input" value="30" readonly />
+          <button class="step-btn" onclick="stepField('show-tech-input',15,0)" tabindex="-1">+</button>
+          <span class="mini-stepper-unit">m</span>
+        </div>
+        <div class="mini-stepper">
+          <span class="mini-stepper-label">Ops</span>
+          <button class="step-btn" onclick="stepField('show-ops-input',-15,0)" tabindex="-1">&minus;</button>
+          <input type="text" id="show-ops-input" value="30" readonly />
+          <button class="step-btn" onclick="stepField('show-ops-input',15,0)" tabindex="-1">+</button>
+          <span class="mini-stepper-unit">m</span>
+        </div>
         <button class="ghost-btn" onclick="addShow()">Add Show</button>
       </div>
     </div>
@@ -369,6 +393,20 @@
     <div class="section-label" style="margin-top:1.5rem;">Schedule by Day</div>
     <div id="day-tabs-bar" style="display:flex;gap:3px;margin-bottom:1rem;overflow-x:auto;padding-bottom:4px;"></div>
     <div id="day-tab-panels"></div>
+
+    <div class="section-label" style="margin-top:1.75rem;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+      <span>Full Week Schedule</span>
+      <button class="ghost-btn" style="font-size:11px;padding:4px 10px;text-transform:none;letter-spacing:0;" onclick="renderWeekOutput()">Refresh</button>
+    </div>
+    <div id="week-output-empty" style="font-size:13px;color:var(--muted);padding:8px 0;">Click <strong style="color:var(--off-white);">Generate Week</strong> above to build the full week. If you've generated days one at a time, hit Refresh here.</div>
+    <div id="week-output-wrap" style="display:none;">
+      <div class="day-schedule-output"><pre id="week-output-pre"></pre></div>
+      <div class="action-row" style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="ghost-btn" onclick="copyWeekSchedule()">Copy Week</button>
+        <button class="ghost-btn" onclick="downloadWeekTXT()">Download TXT</button>
+        <button class="ghost-btn" onclick="showWeekICS()">Download ICS</button>
+      </div>
+    </div>
   </div></div>
 <div class="toast" id="toast"></div>
 
@@ -547,6 +585,7 @@ async function loadWeek() {
   renderMissing();
   buildDayTabs();
   renderShowsCatalog();
+  renderWeekOutput();
 }
 
 
@@ -848,25 +887,27 @@ function buildDayPanel(day){
   const dayShowsHTML=showsCatalog.map(s=>{
     const ws=weekShows[s.name]||{};
     const selected=ws.day===day;
-    const t=selected?ws.startTime:'';
-    const endM=t?(()=>{const [h,m]=t.split(':').map(Number);const tot=h*60+m+s.durationMins;return String(Math.floor(tot/60)).padStart(2,'0')+':'+String(tot%60).padStart(2,'0');})():'';
-    const endDisp=endM?endTime12(endM):'';
+    const st=selected?(ws.startTime||''):'';
+    const et=selected?(ws.endTime||''):'';
     const safeName=s.name.replace(/\s/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+    const tech=s.techCheck??30, ops=s.opsPrep??30;
     return `<div class="show-week-row">
-      <span class="show-week-name">${s.name} <span style="font-size:10px;color:var(--muted);">${s.durationMins}m</span></span>
+      <span class="show-week-name">${s.name} <span style="font-size:10px;color:var(--muted);text-transform:none;letter-spacing:0;">tech ${tech}m &middot; ops ${ops}m</span></span>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;">
         <input type="checkbox" ${selected?'checked':''} onchange="toggleShowDay('${s.name}','${day}',this.checked)" style="accent-color:var(--accent);" /> This day
       </label>
-      ${selected?`<div style="display:flex;gap:4px;align-items:center;">
-        <input type="text" id="shtime-hm-${safeName}-${day}" value="${t?to12HM(t):''}" placeholder="12:00" maxlength="5"
-          style="width:52px;padding:5px 7px;font-size:12px;font-family:'Barlow',sans-serif;background:var(--dark3);border:1px solid var(--border2);border-radius:3px;color:var(--white);outline:none;text-align:center;"
-          oninput="fmtTI(this)" onblur="applyShowTimeFull('${s.name}','${day}',this)" />
-        <select id="shtime-ap-${safeName}-${day}" style="padding:5px 6px;font-size:12px;font-family:'Barlow',sans-serif;background:var(--dark3);border:1px solid var(--border2);border-radius:3px;color:var(--white);outline:none;"
-          onchange="applyShowTimeFull('${s.name}','${day}',document.getElementById('shtime-hm-${safeName}-${day}'))">
-          <option value="AM" ${t&&parseInt(t.split(':')[0])<12?'selected':''}>AM</option>
-          <option value="PM" ${!t||parseInt(t.split(':')[0])>=12?'selected':''}>PM</option>
+      ${selected?`<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+        <input type="text" id="shst-hm-${safeName}-${day}" value="${st?to12HM(st):''}" placeholder="12:00" maxlength="5" class="show-time-input" oninput="fmtTI(this)" onblur="applyShowTimeFull('${s.name}','${day}')" />
+        <select id="shst-ap-${safeName}-${day}" class="show-ap-select" onchange="applyShowTimeFull('${s.name}','${day}')">
+          <option value="AM" ${st&&parseInt(st.split(':')[0])<12?'selected':''}>AM</option>
+          <option value="PM" ${!st||parseInt(st.split(':')[0])>=12?'selected':''}>PM</option>
         </select>
-        ${endDisp?`<span style="font-size:11px;color:var(--muted);">to ${endDisp}</span>`:''}
+        <span style="font-size:11px;color:var(--muted);">to</span>
+        <input type="text" id="shet-hm-${safeName}-${day}" value="${et?to12HM(et):''}" placeholder="1:00" maxlength="5" class="show-time-input" oninput="fmtTI(this)" onblur="applyShowTimeFull('${s.name}','${day}')" />
+        <select id="shet-ap-${safeName}-${day}" class="show-ap-select" onchange="applyShowTimeFull('${s.name}','${day}')">
+          <option value="AM" ${et&&parseInt(et.split(':')[0])<12?'selected':''}>AM</option>
+          <option value="PM" ${!et||parseInt(et.split(':')[0])>=12?'selected':''}>PM</option>
+        </select>
       </div>`:''}
       <span class="show-locked-badge">Locked</span>
     </div>`;
@@ -959,30 +1000,33 @@ function fmtTI(inp){
   inp.value=v;
 }
 
-function applyShowTimeFull(showName,day,hmInp){
+function applyShowTimeFull(showName,day){
   const safeName=showName.replace(/\s/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
-  const ampmSel=document.getElementById('shtime-ap-'+safeName+'-'+day);
-  if(!hmInp||!ampmSel)return;
-  const raw=hmInp.value.trim();
-  if(!raw||!raw.includes(':'))return;
-  const [hStr,mStr]=raw.split(':');
-  let h=parseInt(hStr),m=parseInt(mStr||'0');
-  if(isNaN(h)||isNaN(m))return;
-  if(ampmSel.value==='PM'&&h<12)h+=12;
-  if(ampmSel.value==='AM'&&h===12)h=0;
-  const time24=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+  const parse=(hmId,apId)=>{
+    const hm=document.getElementById(hmId),ap=document.getElementById(apId);
+    if(!hm||!ap)return '';
+    const raw=(hm.value||'').trim();
+    if(!raw||!raw.includes(':'))return '';
+    const [hStr,mStr]=raw.split(':');
+    let h=parseInt(hStr),m=parseInt(mStr||'0');
+    if(isNaN(h)||isNaN(m))return '';
+    if(ap.value==='PM'&&h<12)h+=12;
+    if(ap.value==='AM'&&h===12)h=0;
+    return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+  };
+  const startT=parse('shst-hm-'+safeName+'-'+day,'shst-ap-'+safeName+'-'+day);
+  const endT=parse('shet-hm-'+safeName+'-'+day,'shet-ap-'+safeName+'-'+day);
   if(!weekShows[showName])weekShows[showName]={};
   weekShows[showName].day=day;
-  weekShows[showName].startTime=time24;
+  weekShows[showName].startTime=startT;
+  weekShows[showName].endTime=endT;
   saveWeekShows();
-  const panel=document.getElementById('panel-'+day);
-  if(panel&&panel.classList.contains('active'))panel.innerHTML=buildDayPanel(day);
 }
 
 function toggleShowDay(showName,day,checked){
   if(!weekShows[showName])weekShows[showName]={};
   weekShows[showName].day=checked?day:'';
-  if(!checked)weekShows[showName].startTime='';
+  if(!checked){weekShows[showName].startTime='';weekShows[showName].endTime='';}
   saveWeekShows();
   const panel=document.getElementById('panel-'+day);
   if(panel&&panel.classList.contains('active'))panel.innerHTML=buildDayPanel(day);
@@ -1054,15 +1098,32 @@ async function saveShows(){
   try{await api({action:'saveShows',shows:showsCatalog});}catch(e){}
 }
 
+function stepField(id,delta,min){
+  const el=document.getElementById(id);if(!el)return;
+  let v=(parseInt(el.value)||0)+delta;
+  if(v<min)v=min;
+  el.value=v;
+}
+
+function adjustShow(name,field,delta){
+  const s=showsCatalog.find(x=>x.name===name);if(!s)return;
+  let v=(parseInt(s[field])||0)+delta;
+  if(v<0)v=0;
+  s[field]=v;
+  renderShowsCatalog();
+  saveShows();
+}
+
 function addShow(){
   const name=document.getElementById('show-name-input').value.trim();
-  const dur=parseInt(document.getElementById('show-duration-input').value);
+  const tech=parseInt(document.getElementById('show-tech-input').value);
+  const ops=parseInt(document.getElementById('show-ops-input').value);
   if(!name){toast('Enter a show name.');return;}
-  if(!dur||dur<15){toast('Enter a valid duration (min 15).');return;}
   if(showsCatalog.find(s=>s.name.toLowerCase()===name.toLowerCase())){toast('Show already exists.');return;}
-  showsCatalog.push({name,durationMins:dur});
+  showsCatalog.push({name,techCheck:isNaN(tech)?30:tech,opsPrep:isNaN(ops)?30:ops});
   document.getElementById('show-name-input').value='';
-  document.getElementById('show-duration-input').value='';
+  document.getElementById('show-tech-input').value='30';
+  document.getElementById('show-ops-input').value='30';
   renderShowsCatalog();
   saveShows();
   toast('Show added!');
@@ -1082,23 +1143,39 @@ function renderShowsCatalog(){
     wrap.innerHTML='<div style="font-size:13px;color:var(--muted);">No shows added yet.</div>';
     return;
   }
-  wrap.innerHTML=showsCatalog.map(s=>`
-    <div class="show-catalog-row">
+  wrap.innerHTML=showsCatalog.map(s=>{
+    const tech=s.techCheck??30, ops=s.opsPrep??30;
+    return `<div class="show-catalog-row">
       <span class="show-name-tag">${s.name}</span>
-      <span class="show-dur-tag">${s.durationMins} min</span>
-      <span class="show-locked-badge">Fixed</span>
-      <button onclick="removeShow('${s.name}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--muted)'">x</button>
-    </div>`).join('');
+      <div class="mini-stepper">
+        <span class="mini-stepper-label">Tech</span>
+        <button class="step-btn" onclick="adjustShow('${s.name}','techCheck',-15)">&minus;</button>
+        <input type="text" value="${tech}" readonly />
+        <button class="step-btn" onclick="adjustShow('${s.name}','techCheck',15)">+</button>
+        <span class="mini-stepper-unit">m</span>
+      </div>
+      <div class="mini-stepper">
+        <span class="mini-stepper-label">Ops</span>
+        <button class="step-btn" onclick="adjustShow('${s.name}','opsPrep',-15)">&minus;</button>
+        <input type="text" value="${ops}" readonly />
+        <button class="step-btn" onclick="adjustShow('${s.name}','opsPrep',15)">+</button>
+        <span class="mini-stepper-unit">m</span>
+      </div>
+      <button class="show-remove-btn" onclick="removeShow('${s.name}')">&times;</button>
+    </div>`;
+  }).join('');
 }
 
 function getShowsForDay(day){
   const result=[];
   showsCatalog.forEach(s=>{
     const ws=weekShows[s.name];
-    if(!ws||ws.day!==day||!ws.startTime)return;
-    const [h,m]=ws.startTime.split(':').map(Number);
-    const startMins=h*60+m;
-    result.push({name:s.name,startMins,endMins:startMins+s.durationMins,durationMins:s.durationMins});
+    if(!ws||ws.day!==day||!ws.startTime||!ws.endTime)return;
+    const [sh,sm]=ws.startTime.split(':').map(Number);
+    const [eh,em]=ws.endTime.split(':').map(Number);
+    const startMins=sh*60+sm, endMins=eh*60+em;
+    if(isNaN(startMins)||isNaN(endMins)||endMins<=startMins)return;
+    result.push({name:s.name,startMins,endMins,techCheck:s.techCheck??30,opsPrep:s.opsPrep??30});
   });
   return result.sort((a,b)=>a.startMins-b.startMins);
 }
@@ -1113,7 +1190,60 @@ function generateSchedule(){
   DAYS.forEach(day=>generateDay(day,false));
   saveGlobalSettings();
   buildDayTabs();
+  renderWeekOutput();
   toast('Full week generated!');
+}
+
+// ============================================================
+// FULL WEEK OUTPUT
+// ============================================================
+function buildWeekText(){
+  const parts=[];
+  DAYS.forEach(day=>{
+    const t=(weekData[day]||{}).generatedText;
+    if(t&&t.trim())parts.push(t.trim());
+  });
+  return parts.join('\n\n========================================\n\n');
+}
+function renderWeekOutput(){
+  const wrap=document.getElementById('week-output-wrap');
+  const pre=document.getElementById('week-output-pre');
+  const empty=document.getElementById('week-output-empty');
+  const txt=buildWeekText();
+  if(!txt){
+    if(wrap)wrap.style.display='none';
+    if(empty)empty.style.display='block';
+    return;
+  }
+  if(pre)pre.textContent=txt;
+  if(wrap)wrap.style.display='block';
+  if(empty)empty.style.display='none';
+}
+function copyWeekSchedule(){
+  const txt=buildWeekText();
+  if(txt)navigator.clipboard.writeText(txt).then(()=>toast('Full week copied!'));
+  else toast('Generate the week first.');
+}
+function downloadWeekTXT(){
+  const wm=getWeekMonday();
+  const txt=buildWeekText();
+  if(!txt){toast('Generate the week first.');return;}
+  const blob=new Blob([txt],{type:'text/plain;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='NewsForce_Week_'+(wm||'week')+'.txt';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  toast('Downloaded!');
+}
+function showWeekICS(){
+  const wm=getWeekMonday();
+  const byDay=window._calEventsByDay||{};
+  let all=[];
+  DAYS.forEach(day=>{ if(byDay[day]&&byDay[day].length)all=all.concat(byDay[day]); });
+  if(!all.length){toast('Generate the week first (in this session).');return;}
+  const ics=generateICSContent(all,'NewsForce Week');
+  downloadICS(ics,'NewsForce_Week_'+(wm||'week')+'.ics');
+  toast('Week ICS downloaded!');
 }
 
 function generateDay(day,rebuildTabs=true){
@@ -1182,6 +1312,16 @@ function generateDay(day,rebuildTabs=true){
   });
 
   dayShows.forEach(show=>{
+    const techStart=show.startMins-show.techCheck;
+    const opsStart=techStart-show.opsPrep;
+    if(show.opsPrep>0){
+      dayEvents.push({type:'show-ops',startMins:opsStart,endMins:techStart,label:show.name+' | Ops Prep: '+fmt(opsStart)+' - '+fmt(techStart)+' ET ('+fmtPT(opsStart)+' - '+fmtPT(techStart)+' PT)'});
+      calEvents.push({title:show.name+' - Ops Prep',start:toISO(opsStart),end:toISO(techStart),description:'Show Ops Prep',color:'lavender'});
+    }
+    if(show.techCheck>0){
+      dayEvents.push({type:'show-tech',startMins:techStart,endMins:show.startMins,label:show.name+' | Tech Check: '+fmt(techStart)+' - '+fmt(show.startMins)+' ET ('+fmtPT(techStart)+' - '+fmtPT(show.startMins)+' PT)'});
+      calEvents.push({title:show.name+' - Tech Check',start:toISO(techStart),end:toISO(show.startMins),description:'Show Tech Check',color:'banana'});
+    }
     dayEvents.push({type:'show',startMins:show.startMins,endMins:show.endMins,label:'[SHOW] '+show.name+': '+fmt(show.startMins)+' - '+fmt(show.endMins)+' ET ('+fmtPT(show.startMins)+' - '+fmtPT(show.endMins)+' PT) [LOCKED]'});
     calEvents.push({title:show.name,start:toISO(show.startMins),end:toISO(show.endMins),description:'NewsForce Show',color:'peacock'});
   });
