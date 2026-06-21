@@ -1088,6 +1088,143 @@ function switchView(view,btn){
 }
 
 
+// FORM
+function buildDays(){
+  const wrap=document.getElementById('days-container');wrap.innerHTML='';
+  const wm=nextMonday();
+  const mon=new Date(wm+'T12:00:00');
+  const label=mondayToWeekRange(wm);
+  document.getElementById('form-week-label').textContent=label;
+  document.getElementById('confirm-week-label').textContent=label;
+
+  DAYS.forEach((day,i)=>{
+    const d=new Date(mon);d.setDate(mon.getDate()+i);
+    const ds=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    blockCounts[day]=0;
+    const card=document.createElement('div');
+    card.className='day-card';card.id='daycard-'+day;
+    card.innerHTML=`
+      <div class="day-header">
+        <div><div class="day-name">${day}</div><div class="day-date">${ds}</div></div>
+        <button class="day-off-btn" id="offbtn-${day}" onclick="toggleDayOff('${day}',this)">
+          <span class="btn-dot"></span>Mark as day off
+        </button>
+      </div>
+      <div id="avail-${day}">
+        <div class="blocks-wrap" id="blocks-${day}"></div>
+        <button class="add-btn" onclick="addBlock('${day}')"><span class="add-circle">+</span> Add another time block</button>
+        <div class="notes-row"><label>Notes (location, context)</label><textarea id="notes-${day}" placeholder="e.g. Brussels, final exams..."></textarea></div>
+      </div>
+      <div id="offoverlay-${day}" style="display:none;">
+        <div class="off-overlay">
+          <div class="off-badge">Day off</div>
+          <span class="off-undo" onclick="toggleDayOff('${day}',document.getElementById('offbtn-${day}'))">Tap to undo</span>
+        </div>
+      </div>`;
+    wrap.appendChild(card);addBlock(day);
+  });
+}
+
+function toggleDayOff(day,btn){
+  btn.classList.toggle('active');
+  const isOff=btn.classList.contains('active');
+  document.getElementById('daycard-'+day).classList.toggle('is-off',isOff);
+  document.getElementById('avail-'+day).style.display=isOff?'none':'';
+  document.getElementById('offoverlay-'+day).style.display=isOff?'block':'none';
+  btn.innerHTML=`<span class="btn-dot"></span>${isOff?'Day off':'Mark as day off'}`;
+}
+
+function addBlock(day){
+  const wrap=document.getElementById('blocks-'+day),id=++blockCounts[day],first=id===1;
+  const div=document.createElement('div');div.className='block-row';div.id=`blk-${day}-${id}`;
+  div.innerHTML=`<div class="block-top"><span class="block-tag">${first?'Availability':'Block '+id}</span>${!first?`<button class="rm-btn" onclick="rmBlock('${day}',${id})">x</button>`:''}</div><div class="block-fields" id="bf-${day}-${id}"><div class="mini-field"><label>Type</label><select onchange="updateType('${day}',${id},this.value)"><option value="all">Available all day</option><option value="before">Available until a time</option><option value="unavailable">Unavailable during window</option></select></div></div>`;
+  wrap.appendChild(div);updateType(day,id,'all');
+}
+
+function updateType(day,id,type){
+  const f=document.getElementById(`bf-${day}-${id}`);f.querySelectorAll('.tf').forEach(e=>e.remove());
+  if(type==='before'){const d=document.createElement('div');d.className='mini-field tf';d.innerHTML=`<label>Until (your local time)</label><input type="time" id="bef-${day}-${id}" value="16:00" />`;f.appendChild(d);f.style.gridTemplateColumns='1.5fr 1fr';}
+  else if(type==='unavailable'){['from','to'].forEach(k=>{const d=document.createElement('div');d.className='mini-field tf';d.innerHTML=`<label>${k==='from'?'Unavailable from':'Until'} (local)</label><input type="time" id="${k}-${day}-${id}" value="${k==='from'?'14:00':'17:00'}" />`;f.appendChild(d);});f.style.gridTemplateColumns='1.5fr 1fr 1fr';}
+  else f.style.gridTemplateColumns='1fr';
+}
+
+function rmBlock(day,id){document.getElementById(`blk-${day}-${id}`).remove();}
+
+function getDayBlocks(day){
+  const btn=document.getElementById('offbtn-'+day);
+  if(btn&&btn.classList.contains('active'))return [{type:'off'}];
+  const wrap=document.getElementById('blocks-'+day);if(!wrap)return [{type:'off'}];
+  const blocks=[],notes=document.getElementById('notes-'+day)?.value||'';
+  wrap.querySelectorAll('.block-row').forEach(row=>{
+    const id=row.id.split('-').pop(),sel=row.querySelector('select');if(!sel)return;
+    const type=sel.value;
+    if(type==='all')blocks.push({type:'all',notes});
+    else if(type==='before')blocks.push({type:'before',before:document.getElementById(`bef-${day}-${id}`)?.value||'16:00',notes});
+    else blocks.push({type:'unavailable',from:document.getElementById(`from-${day}-${id}`)?.value||'14:00',to:document.getElementById(`to-${day}-${id}`)?.value||'17:00',notes});
+  });
+  return blocks.length?blocks:[{type:'all',notes}];
+}
+
+function describeBlocks(blocks){
+  if(!blocks||!blocks.length||blocks[0].type==='off')return null;
+  return blocks.map(b=>{
+    if(b.type==='all')return 'Available all day'+(b.notes?' ('+b.notes+')':'');
+    if(b.type==='before')return 'Available until '+b.before+(b.notes?' ('+b.notes+')':'');
+    if(b.type==='unavailable')return 'Unavailable '+b.from+'-'+b.to+(b.notes?' ('+b.notes+')':'');
+    return '';
+  }).join(', ');
+}
+
+function showConfirm(){
+  const name=document.getElementById('anchor-name').value;
+  if(!name){alert('Please select your name from the dropdown.');return;}
+  const days={};DAYS.forEach(day=>{days[day]=getDayBlocks(day);});
+  const summary=document.getElementById('confirm-summary');
+  summary.innerHTML=`<div style="font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">${name} &mdash; ${document.getElementById('anchor-tz').value}</div>`+
+    DAYS.map(day=>{
+      const blocks=days[day];
+      const isOff=!blocks||blocks[0].type==='off';
+      const desc=isOff?null:describeBlocks(blocks);
+      return `<div class="confirm-day">
+        <div class="confirm-day-name">${day}</div>
+        ${isOff?'<span class="confirm-day-off">Day off</span>':`<div class="confirm-day-detail">${desc||'Available all day'}</div>`}
+      </div>`;
+    }).join('');
+  document.getElementById('form-step1').style.display='none';
+  document.getElementById('form-step2').style.display='block';
+}
+
+async function loadFormRoster(){
+  const select = document.getElementById('anchor-name');
+  const errEl = document.getElementById('name-error');
+  try {
+    const res = await api({action:'getRoster'});
+    if(res.success && res.roster && res.roster.length){
+      select.innerHTML = '<option value="">Select your name...</option>' +
+        res.roster.map(n=>`<option value="${n}">${n}</option>`).join('');
+    } else {
+      select.innerHTML = '<option value="">No anchors found — contact ops</option>';
+      errEl.style.display = 'block';
+    }
+  } catch(e) {
+    select.innerHTML = '<option value="">Could not load — try refreshing</option>';
+    errEl.style.display = 'block';
+  }
+}
+
+async function submitForm(){
+  const name=document.getElementById('anchor-name').value;
+  const tz=document.getElementById('anchor-tz').value;
+  const days={};DAYS.forEach(day=>{days[day]=getDayBlocks(day);});
+  const btn=document.getElementById('submit-btn');btn.disabled=true;btn.textContent='Submitting...';
+  try{
+    const res=await api({action:'submitAvailability',weekMonday:nextMonday(),anchor:{name,tz,days}});
+    if(res.success){document.getElementById('form-step2').style.display='none';document.getElementById('form-step3').style.display='block';}
+    else{alert('Error: '+res.error);btn.disabled=false;btn.textContent='Confirm and submit';}
+  }catch(e){alert('Connection error. Please try again.');btn.disabled=false;btn.textContent='Confirm and submit';}
+}
+
+
 // INIT
 buildDays();
 document.getElementById('week-start').value=nextMonday();
