@@ -1432,14 +1432,15 @@ function generateDay(day,rebuildTabs=true){
   // Shows are LOCKED: their full footprint (ops prep -> tech check -> show end) is blocked time.
   const blocks=dayShows.map(s=>({start:s.startMins-s.techCheck-s.opsPrep,end:s.endMins})).sort((a,b)=>a.start-b.start);
 
-  // Two daily Ops Breaks (30 min), spaced apart: one in the morning, one after the last show.
-  // Reserved up front as blocked time so reads schedule around them.
+  // Two daily Ops Breaks (30 min), kept well apart so they never stack: one earlier, one after the last show.
   const showBlocks=blocks.slice();
   const firstShowStart=showBlocks.length?Math.min(...showBlocks.map(b=>b.start)):null;
   const lastShowEnd=showBlocks.length?Math.max(...showBlocks.map(b=>b.end)):null;
+  const BREAK_MIN_GAP=120; // minutes the 2nd break must follow the 1st (prevents stacking)
+  const opsBreaks=[];
   const freeAt=(from,cap)=>{
     let s=from,g=0;
-    while(s+30<=Math.min(cap,19*60)&&g<80){
+    while(s+30<=Math.min(cap,19*60)&&g<120){
       g++;
       const hit=blocks.find(b=>s<b.end&&(s+30)>b.start);
       if(!hit)return s;
@@ -1447,21 +1448,26 @@ function generateDay(day,rebuildTabs=true){
     }
     return null;
   };
-  const opsBreaks=[];
-  // Morning break: tucked just before the first show; on no-show days, at the morning target.
-  let mbStart;
+  const reserveBreak=(start)=>{
+    if(start==null)return null;
+    const b={start,end:start+30};
+    opsBreaks.push(b);blocks.push(b);blocks.sort((a,b)=>a.start-b.start);
+    return b;
+  };
+  // First break: just before the first show if there's morning room; otherwise right after the last show; no show -> morning target.
+  let b1Start=null;
   if(firstShowStart!==null){
     const cand=firstShowStart-30;
-    if(cand>=OPS_END&&!blocks.find(b=>cand<b.end&&(cand+30)>b.start))mbStart=cand;
-    else mbStart=freeAt(OPS_END,19*60);
+    if(cand>=OPS_END&&!blocks.find(b=>cand<b.end&&(cand+30)>b.start))b1Start=cand;
+    else b1Start=freeAt(lastShowEnd,19*60);
   } else {
-    mbStart=freeAt(Math.max(OPS_END,OPS_MORNING_BREAK),19*60);
+    b1Start=freeAt(Math.max(OPS_END,OPS_MORNING_BREAK),19*60);
   }
-  if(mbStart!=null){opsBreaks.push({start:mbStart,end:mbStart+30});blocks.push({start:mbStart,end:mbStart+30});blocks.sort((a,b)=>a.start-b.start);}
-  // Afternoon break: right after the last show; on no-show days, at the afternoon target.
-  const aFrom=lastShowEnd!==null?lastShowEnd:Math.max(OPS_END,OPS_AFTERNOON_BREAK);
-  const abStart=freeAt(aFrom,19*60);
-  if(abStart!=null){opsBreaks.push({start:abStart,end:abStart+30});blocks.push({start:abStart,end:abStart+30});blocks.sort((a,b)=>a.start-b.start);}
+  const b1=reserveBreak(b1Start);
+  // Second break: after the last show AND at least BREAK_MIN_GAP after the first, so the two are never adjacent.
+  let b2From=lastShowEnd!==null?lastShowEnd:Math.max(OPS_END,OPS_AFTERNOON_BREAK);
+  if(b1)b2From=Math.max(b2From,b1.end+BREAK_MIN_GAP);
+  reserveBreak(freeAt(b2From,19*60));
 
   const placedReads=[];
   // Occupied time for fitting = show blocks + the two ops breaks + each placed read.
