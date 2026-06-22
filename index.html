@@ -13,7 +13,7 @@
       --border:#2e2e2e;--border2:#3a3a3a;--white:#ffffff;--off-white:#e8e8e8;
       --muted:#888888;--accent:#c8f000;--red:#ff3b30;--green:#34c759;
       --green-bg:rgba(52,199,89,0.12);--amber:#ff9f0a;--amber-bg:rgba(255,159,10,0.12);
-      --red-bg:rgba(255,59,48,0.08);--red-border:rgba(255,59,468,0.25);
+      --red-bg:rgba(255,59,48,0.08);--red-border:rgba(255,59,48,0.25);
     }
     body{font-family:'Barlow',sans-serif;background:var(--black);color:var(--white);min-height:100vh;}
     .topbar{background:var(--dark);border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;height:58px;gap:12px;position:sticky;top:0;z-index:100;}
@@ -457,6 +457,8 @@ function checkAppPassword(){
 const SCRIPT_URL="https://script.google.com/macros/s/AKfycbz9iOMcAgp0q6PpZ1whQEvVXYY27E9mQp675vkuYxKyxy5nYGkDOnQN3nIxPreGSVtH/exec";
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const TZ_OFF={ET:0,CT:1,MT:2,PT:3,GMT:-5,CET:-6,IST:-10.5,AEST:-16};
+// Two fixed daily Ops Breaks (30 min each), in ET minutes-past-midnight. Change these two values to retime the breaks.
+const OPS_BREAK_TIMES=[13*60+30, 16*60+30]; // 1:30 PM and 4:30 PM ET
 let submissions=[],blockCounts={},roster=[],offDays=[],readTypes={},dayOrders={},dayExclusions={},liveAnchors={},dayScheduleStart={},liveStartTime='17:00',producerUnlocked=false;
 // --- State that was missing from this file (restored) ---
 let weekData={},weekShows={},additionalReads={},showsCatalog=[],liveShowPrepTime=30,currentDay='Monday';
@@ -1425,11 +1427,27 @@ function generateDay(day,rebuildTabs=true){
   const liveAvailAnchors=allAvail.filter(a=>isAnchorLive(a.name,day));
 
   // Shows are LOCKED: their full footprint (ops prep -> tech check -> show end) is blocked time.
-  // Reads fill the open gaps BEFORE and AFTER each show, earliest-fit, with a 30-min Ops Break between consecutive reads.
   const blocks=dayShows.map(s=>({start:s.startMins-s.techCheck-s.opsPrep,end:s.endMins})).sort((a,b)=>a.start-b.start);
+
+  // Two fixed daily Ops Breaks (30 min). Reserved up front as blocked time so reads schedule around them.
+  // If a break's default time collides with a show (or the other break), it slides to the next open moment.
+  const opsBreaks=[];
+  OPS_BREAK_TIMES.slice().sort((a,b)=>a-b).forEach(t=>{
+    let s=t,e=t+30,guard=0;
+    while(guard<40){
+      guard++;
+      const hit=blocks.concat(opsBreaks).find(b=>s<b.end&&e>b.start);
+      if(!hit)break;
+      s=hit.end;e=s+30;
+    }
+    if(e<=19*60)opsBreaks.push({start:s,end:e});
+  });
+  opsBreaks.forEach(b=>blocks.push(b));
+  blocks.sort((a,b)=>a.start-b.start);
+
   const placedReads=[];
-  // Occupied time for fitting = show blocks + each placed read plus a trailing 30-min break reservation (keeps reads spaced).
-  const occupied=()=>blocks.concat(placedReads.map(r=>({start:r.start,end:r.end+30})));
+  // Occupied time for fitting = show blocks + the two ops breaks + each placed read.
+  const occupied=()=>blocks.concat(placedReads.map(r=>({start:r.start,end:r.end})));
   const earliestSlot=(wins,dur)=>{
     const occ=occupied();
     for(const w of wins){
@@ -1458,19 +1476,18 @@ function generateDay(day,rebuildTabs=true){
     placedReads.push({start:ss,end:re,name:anchor.name,label});
   });
 
-  // Emit reads in time order, with an Ops Break between consecutive reads (only when it fits cleanly and not on a show).
+  // Emit reads in time order.
   placedReads.sort((a,b)=>a.start-b.start);
-  placedReads.forEach((r,i)=>{
+  placedReads.forEach(r=>{
     dayEvents.push({type:'anchor',startMins:r.start,endMins:r.end,label:r.label});
     recA(r.name,r.label);
     calEvents.push({title:r.name+' - Live to Tape',start:toISO(r.start),end:toISO(r.end),description:'Tech Check + Read',color:'radicchio'});
-    const brkS=r.end,brkE=r.end+30;
-    const hasLater=placedReads.slice(i+1).some(x=>x.start>=brkE);
-    const onShow=blocks.some(b=>brkS<b.end&&brkE>b.start);
-    if(hasLater&&!onShow&&brkE<=19*60){
-      dayEvents.push({type:'break',startMins:brkS,endMins:brkE,label:'Ops Break '+fmt(brkS)+' - '+fmt(brkE)+' ET ('+fmtPT(brkS)+' - '+fmtPT(brkE)+' PT)'});
-      calEvents.push({title:'Ops Break',start:toISO(brkS),end:toISO(brkE),description:'Ops Break',color:'flamingo'});
-    }
+  });
+
+  // Emit the two Ops Breaks.
+  opsBreaks.forEach(b=>{
+    dayEvents.push({type:'break',startMins:b.start,endMins:b.end,label:'Ops Break '+fmt(b.start)+' - '+fmt(b.end)+' ET ('+fmtPT(b.start)+' - '+fmtPT(b.end)+' PT)'});
+    calEvents.push({title:'Ops Break',start:toISO(b.start),end:toISO(b.end),description:'Ops Break',color:'flamingo'});
   });
 
   dayShows.forEach(show=>{
