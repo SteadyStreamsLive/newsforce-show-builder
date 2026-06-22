@@ -457,8 +457,11 @@ function checkAppPassword(){
 const SCRIPT_URL="https://script.google.com/macros/s/AKfycbz9iOMcAgp0q6PpZ1whQEvVXYY27E9mQp675vkuYxKyxy5nYGkDOnQN3nIxPreGSVtH/exec";
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const TZ_OFF={ET:0,CT:1,MT:2,PT:3,GMT:-5,CET:-6,IST:-10.5,AEST:-16};
-// Two fixed daily Ops Breaks (30 min each), in ET minutes-past-midnight. Change these two values to retime the breaks.
-const OPS_BREAK_TIMES=[13*60+30, 16*60+30]; // 1:30 PM and 4:30 PM ET
+// Daily Ops Breaks (30 min each), in ET minutes-past-midnight.
+// On show days: the morning break is tucked just before the first show, the afternoon break lands right after the last show.
+// On days with no shows: these target times are used.
+const OPS_MORNING_BREAK=12*60;       // 12:00 PM ET
+const OPS_AFTERNOON_BREAK=16*60+30;  // 4:30 PM ET
 let submissions=[],blockCounts={},roster=[],offDays=[],readTypes={},dayOrders={},dayExclusions={},liveAnchors={},dayScheduleStart={},liveStartTime='17:00',producerUnlocked=false;
 // --- State that was missing from this file (restored) ---
 let weekData={},weekShows={},additionalReads={},showsCatalog=[],liveShowPrepTime=30,currentDay='Monday';
@@ -1429,21 +1432,36 @@ function generateDay(day,rebuildTabs=true){
   // Shows are LOCKED: their full footprint (ops prep -> tech check -> show end) is blocked time.
   const blocks=dayShows.map(s=>({start:s.startMins-s.techCheck-s.opsPrep,end:s.endMins})).sort((a,b)=>a.start-b.start);
 
-  // Two fixed daily Ops Breaks (30 min). Reserved up front as blocked time so reads schedule around them.
-  // If a break's default time collides with a show (or the other break), it slides to the next open moment.
-  const opsBreaks=[];
-  OPS_BREAK_TIMES.slice().sort((a,b)=>a-b).forEach(t=>{
-    let s=t,e=t+30,guard=0;
-    while(guard<40){
-      guard++;
-      const hit=blocks.concat(opsBreaks).find(b=>s<b.end&&e>b.start);
-      if(!hit)break;
-      s=hit.end;e=s+30;
+  // Two daily Ops Breaks (30 min), spaced apart: one in the morning, one after the last show.
+  // Reserved up front as blocked time so reads schedule around them.
+  const showBlocks=blocks.slice();
+  const firstShowStart=showBlocks.length?Math.min(...showBlocks.map(b=>b.start)):null;
+  const lastShowEnd=showBlocks.length?Math.max(...showBlocks.map(b=>b.end)):null;
+  const freeAt=(from,cap)=>{
+    let s=from,g=0;
+    while(s+30<=Math.min(cap,19*60)&&g<80){
+      g++;
+      const hit=blocks.find(b=>s<b.end&&(s+30)>b.start);
+      if(!hit)return s;
+      s=hit.end;
     }
-    if(e<=19*60)opsBreaks.push({start:s,end:e});
-  });
-  opsBreaks.forEach(b=>blocks.push(b));
-  blocks.sort((a,b)=>a.start-b.start);
+    return null;
+  };
+  const opsBreaks=[];
+  // Morning break: tucked just before the first show; on no-show days, at the morning target.
+  let mbStart;
+  if(firstShowStart!==null){
+    const cand=firstShowStart-30;
+    if(cand>=OPS_END&&!blocks.find(b=>cand<b.end&&(cand+30)>b.start))mbStart=cand;
+    else mbStart=freeAt(OPS_END,19*60);
+  } else {
+    mbStart=freeAt(Math.max(OPS_END,OPS_MORNING_BREAK),19*60);
+  }
+  if(mbStart!=null){opsBreaks.push({start:mbStart,end:mbStart+30});blocks.push({start:mbStart,end:mbStart+30});blocks.sort((a,b)=>a.start-b.start);}
+  // Afternoon break: right after the last show; on no-show days, at the afternoon target.
+  const aFrom=lastShowEnd!==null?lastShowEnd:Math.max(OPS_END,OPS_AFTERNOON_BREAK);
+  const abStart=freeAt(aFrom,19*60);
+  if(abStart!=null){opsBreaks.push({start:abStart,end:abStart+30});blocks.push({start:abStart,end:abStart+30});blocks.sort((a,b)=>a.start-b.start);}
 
   const placedReads=[];
   // Occupied time for fitting = show blocks + the two ops breaks + each placed read.
