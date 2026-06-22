@@ -388,6 +388,7 @@
     <div id="week-output-wrap" style="display:none;">
       <div class="day-schedule-output"><pre id="week-output-pre"></pre></div>
       <div class="action-row" style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="accent-btn" onclick="pushWeek()">Push Full Week to Calendar</button>
         <button class="ghost-btn" onclick="copyWeekSchedule()">Copy Week</button>
         <button class="ghost-btn" onclick="downloadWeekTXT()">Download TXT</button>
         <button class="ghost-btn" onclick="showWeekICS()">Download ICS</button>
@@ -1109,6 +1110,20 @@ async function pushDay(day){
   try{
     const r=await api({action:'pushToCalendar',weekMonday:wm,events});
     toast(r.success?day+' pushed to calendar!':'Error: '+r.error,3000);
+  }catch(e){toast('Connection error.');}
+}
+
+async function pushWeek(){
+  const wm=getWeekMonday();if(!wm){toast('Set a week first.');return;}
+  const byDay=window._calEventsByDay||{};
+  let events=[];
+  DAYS.forEach(day=>{ if(byDay[day]&&byDay[day].length)events=events.concat(byDay[day]); });
+  if(!events.length){toast('Generate the week first (Generate Week above).');return;}
+  await saveGlobalSettings();
+  toast('Pushing full week to calendar...',4000);
+  try{
+    const r=await api({action:'pushToCalendar',weekMonday:wm,events});
+    toast(r.success?('Full week pushed! ('+events.length+' events)'):'Error: '+r.error,5000);
   }catch(e){toast('Connection error.');}
 }
 
