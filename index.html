@@ -23,7 +23,7 @@
     .logo-divider{width:1px;height:18px;background:var(--border2);}
     .logo-sub{font-size:12px;color:var(--muted);font-weight:500;}
     .live-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,59,48,0.15);border:1px solid rgba(255,59,48,0.3);color:var(--red);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;padding:3px 8px;border-radius:4px;}
-    .live-dot{width:5px;height:5px;border-radius:50%;background:var(--red);animation:pulse 1.5s infianite;}
+    .live-dot{width:5px;height:5px;border-radius:50%;background:var(--red);animation:pulse 1.5s infinite;}
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
     .nav-btn{font-family:'Barlow',sans-serif;font-size:13px;font-weight:500;padding:7px 16px;border-radius:4px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;transition:all 0.15s;}
     .nav-btn.active{background:var(--accent);color:var(--black);border-color:var(--accent);font-weight:600;}
@@ -464,7 +464,8 @@ let submissions=[],blockCounts={},roster=[],offDays=[],readTypes={},dayOrders={}
 // --- State that was missing from this file (restored) ---
 let weekData={},weekShows={},additionalReads={},showsCatalog=[],liveShowPrepTime=30,currentDay='Monday';
 
-function toast(msg,ms=2500){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),ms);}
+let _toastTimer;
+function toast(msg,ms=2500){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(_toastTimer);_toastTimer=setTimeout(()=>el.classList.remove('show'),ms);}
 async function api(payload){const r=await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify(payload)});return r.json();}
 
 function switchView(view,btn){
@@ -1123,6 +1124,7 @@ async function pushDay(day){
   const wm=getWeekMonday();if(!wm){toast('Set a week first.');return;}
   const events=(window._calEventsByDay||{})[day]||[];
   if(!events.length){toast('Generate schedule first.');return;}
+  toast('Pushing '+day+' to calendar... this can take 30s',60000);
   await saveGlobalSettings();
   try{
     const r=await api({action:'pushToCalendar',weekMonday:wm,events});
@@ -1136,8 +1138,8 @@ async function pushWeek(){
   let events=[];
   DAYS.forEach(day=>{ if(byDay[day]&&byDay[day].length)events=events.concat(byDay[day]); });
   if(!events.length){toast('Generate the week first (Generate Week above).');return;}
+  toast('Pushing full week to calendar... this can take a minute',120000);
   await saveGlobalSettings();
-  toast('Pushing full week to calendar...',4000);
   try{
     const r=await api({action:'pushToCalendar',weekMonday:wm,events});
     toast(r.success?('Full week pushed! ('+events.length+' events)'):'Error: '+r.error,5000);
