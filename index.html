@@ -347,7 +347,7 @@
     </div>
     <div class="week-row" style="margin-bottom:1rem;">
       <label>Week of</label>
-      <input type="date" id="week-start" onchange="loadWeek()" />
+      <input type="date" id="week-start" onchange="onWeekStartChange()" />
       <button class="ghost-btn" onclick="loadWeek()">Refresh</button>
     </div>
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:1rem;flex-wrap:wrap;">
@@ -604,6 +604,26 @@ function getDateForDay(weekMonday, dayIdx){
   const d=new Date(weekMonday+'T12:00:00');
   d.setDate(d.getDate()+dayIdx);
   return d;
+}
+
+// Snap any chosen date back to the Monday that starts its week (so day tabs/dates stay correct).
+function snapToMonday(dateStr){
+  if(!dateStr)return dateStr;
+  const d=new Date(dateStr+'T12:00:00');
+  const dow=d.getDay(); // 0=Sun .. 6=Sat
+  const diff=dow===0?-6:(1-dow); // Sun->back 6, Mon->0, Tue->-1, ...
+  d.setDate(d.getDate()+diff);
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function onWeekStartChange(){
+  const inp=document.getElementById('week-start');
+  const snapped=snapToMonday(inp.value);
+  if(snapped&&snapped!==inp.value){
+    inp.value=snapped;
+    toast('Snapped to week start (Monday '+snapped+')',2500);
+  }
+  loadWeek();
 }
 
 async function loadWeek() {
@@ -1512,7 +1532,7 @@ function generateDay(day,rebuildTabs=true){
     const label=addMin>0
       ? anchor.name+' | Live to Tape Test / Prep: '+fmt(ss)+' - '+fmt(pe)+' ET ('+fmtPT(ss)+' - '+fmtPT(pe)+' PT) Additional Read: '+fmt(pe)+' - '+fmt(ae)+' ET Read: '+fmt(ae)+' - '+fmt(re)+' ET ('+fmtPT(ae)+' - '+fmtPT(re)+' PT)'
       : anchor.name+' | Live to Tape Test / Prep: '+fmt(ss)+' - '+fmt(pe)+' ET ('+fmtPT(ss)+' - '+fmtPT(pe)+' PT) Read: '+fmt(pe)+' - '+fmt(re)+' ET ('+fmtPT(pe)+' - '+fmtPT(re)+' PT)';
-    placedReads.push({start:ss,end:re,name:anchor.name,label});
+    placedReads.push({start:ss,end:re,name:anchor.name,label,prepEnd:pe,addEnd:ae,addMin});
   });
 
   // Emit reads in time order.
@@ -1520,7 +1540,14 @@ function generateDay(day,rebuildTabs=true){
   placedReads.forEach(r=>{
     dayEvents.push({type:'anchor',startMins:r.start,endMins:r.end,label:r.label});
     recA(r.name,r.label);
-    calEvents.push({title:r.name+' - Live to Tape',start:toISO(r.start),end:toISO(r.end),description:'Tech Check + Read',color:'radicchio'});
+    // Separate calendar line items: Prep (tech check), optional Additional Read, then the Read.
+    calEvents.push({title:r.name+' - Prep',start:toISO(r.start),end:toISO(r.prepEnd),description:'Live to Tape Test / Prep',color:'grape'});
+    if(r.addMin>0){
+      calEvents.push({title:r.name+' - Additional Read',start:toISO(r.prepEnd),end:toISO(r.addEnd),description:'Additional Read',color:'sage'});
+      calEvents.push({title:r.name+' - Read',start:toISO(r.addEnd),end:toISO(r.end),description:'Read',color:'radicchio'});
+    } else {
+      calEvents.push({title:r.name+' - Read',start:toISO(r.prepEnd),end:toISO(r.end),description:'Read',color:'radicchio'});
+    }
   });
 
   // Emit the two Ops Breaks.
