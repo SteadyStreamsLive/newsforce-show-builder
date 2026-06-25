@@ -206,6 +206,10 @@
     .show-name-tag{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--accent);flex:1;}
     .show-dur-tag{font-size:12px;color:var(--muted);}
     .show-locked-badge{background:rgba(255,159,10,0.12);border:1px solid rgba(255,159,10,0.3);border-radius:3px;padding:2px 7px;font-size:10px;font-weight:700;color:var(--amber);letter-spacing:0.05em;text-transform:uppercase;}
+    .show-lock-btn{flex-basis:100%;margin-top:2px;background:var(--dark3);border:1px solid var(--border2);border-radius:4px;padding:5px 11px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;text-align:left;transition:all 0.15s;}
+    .show-lock-btn:hover{color:var(--white);border-color:var(--muted);}
+    .show-lock-btn.on{background:rgba(255,159,10,0.12);border-color:rgba(255,159,10,0.4);color:var(--amber);}
+    .show-lock-note{font-size:10px;font-weight:700;color:var(--amber);letter-spacing:0.04em;}
     .show-week-row{display:flex;align-items:center;gap:10px;background:var(--dark2);border:1px solid var(--border);border-radius:4px;padding:8px 12px;margin-bottom:6px;flex-wrap:wrap;}
     .show-week-name{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--accent);min-width:120px;}
     .mini-stepper{display:inline-flex;align-items:center;gap:4px;background:var(--dark3);border:1px solid var(--border2);border-radius:4px;padding:2px 5px;}
@@ -629,6 +633,8 @@ async function loadWeek() {
   try { const r=await api({action:'getSubmissions',weekMonday:wm}); submissions=r.submissions||[]; } catch(e){ submissions=[]; }
   try { const r=await api({action:'getWeekData',weekMonday:wm}); if(r.success&&r.weekData) weekData=r.weekData; } catch(e){}
   try { const r=await api({action:'getWeekShows',weekMonday:wm}); if(r.success&&r.weekShows) weekShows=r.weekShows; } catch(e){}
+  if(!showsCatalog.length){try{const sr=await api({action:'getShows'});if(sr&&sr.success&&Array.isArray(sr.shows))showsCatalog=sr.shows;}catch(e){}}
+  applyLockedShows();
   const gs=weekData._global||{};
   if(gs.liveStartTime){liveStartTime=gs.liveStartTime;const el=document.getElementById('live-start-time');if(el)el.value=liveStartTime;}
   if(gs.liveShowPrepTime){liveShowPrepTime=gs.liveShowPrepTime;const el=document.getElementById('live-prep-time');if(el)el.value=liveShowPrepTime;}
@@ -970,8 +976,9 @@ function buildDayPanel(day){
         <span class="show-people-label">On air</span>
         ${roster.length?roster.map(n=>{const on=(ws.anchors||[]).includes(n);return `<button class="show-anchor-chip ${on?'active':''}" onclick="toggleShowAnchor('${s.name}','${day}','${n}',this)">${n}</button>`;}).join(''):'<span style="font-size:11px;color:var(--muted);">No roster anchors</span>'}
         <input type="text" id="shg-${safeName}-${day}" value="${(ws.guests||[]).join(', ')}" placeholder="Guests (comma separated)" class="show-guest-input" onblur="setShowGuests('${s.name}','${day}',this.value)" />
-      </div>`:''}
-      <span class="show-locked-badge">Locked</span>
+      </div>
+      <button class="show-lock-btn ${s.locked?'on':''}" onclick="toggleShowLock('${s.name}','${day}')">${s.locked?'\uD83D\uDD12 Locked weekly \u2014 unlock':'\uD83D\uDD13 Lock to this day/time weekly'}</button>`
+        :(s.locked&&s.lockDay&&s.lockDay!==day?`<span class="show-lock-note">\uD83D\uDD12 Recurs ${s.lockDay}</span>`:'')}
     </div>`;
   }).join('');
 
@@ -1082,13 +1089,19 @@ function applyShowTimeFull(showName,day){
   weekShows[showName].day=day;
   weekShows[showName].startTime=startT;
   weekShows[showName].endTime=endT;
+  const slk=showsCatalog.find(x=>x.name===showName);
+  if(slk&&slk.locked&&slk.lockDay===day){slk.lockStart=startT;slk.lockEnd=endT;saveShows();}
   saveWeekShows();
 }
 
 function toggleShowDay(showName,day,checked){
   if(!weekShows[showName])weekShows[showName]={};
   weekShows[showName].day=checked?day:'';
-  if(!checked){weekShows[showName].startTime='';weekShows[showName].endTime='';}
+  if(!checked){
+    weekShows[showName].startTime='';weekShows[showName].endTime='';
+    const s=showsCatalog.find(x=>x.name===showName);
+    if(s&&s.locked){s.locked=false;s.lockDay='';s.lockStart='';s.lockEnd='';saveShows();}
+  }
   saveWeekShows();
   const panel=document.getElementById('panel-'+day);
   if(panel&&panel.classList.contains('active'))panel.innerHTML=buildDayPanel(day);
@@ -1112,6 +1125,41 @@ function setShowGuests(showName,day,val){
   if(!weekShows[showName])weekShows[showName]={};
   weekShows[showName].guests=val.split(',').map(g=>g.trim()).filter(Boolean);
   saveWeekShows();
+}
+
+// Locked shows recur every week at the same day/time. Auto-fill them into the current week if absent.
+function applyLockedShows(){
+  let changed=false;
+  showsCatalog.forEach(s=>{
+    if(s.locked&&s.lockDay){
+      const ws=weekShows[s.name];
+      if(!ws||!ws.day){
+        weekShows[s.name]={day:s.lockDay,startTime:s.lockStart||'',endTime:s.lockEnd||'',anchors:(ws&&ws.anchors)||[],guests:(ws&&ws.guests)||[]};
+        changed=true;
+      }
+    }
+  });
+  if(changed)saveWeekShows();
+}
+
+function toggleShowLock(showName,day){
+  const s=showsCatalog.find(x=>x.name===showName);if(!s)return;
+  if(s.locked){
+    // Unlock: stop recurring AND reset this day's slot (uncheck box + clear time).
+    s.locked=false;s.lockDay='';s.lockStart='';s.lockEnd='';
+    weekShows[showName]={day:'',startTime:'',endTime:'',anchors:[],guests:[]};
+    saveShows();saveWeekShows();
+    toast(showName+' unlocked \u2014 reset for this day');
+  } else {
+    // Lock: latch the current day + time as the weekly slot.
+    const ws=weekShows[showName]||{};
+    if(ws.day!==day||!ws.startTime||!ws.endTime){toast('Set this day and a start/end time first, then lock.');return;}
+    s.locked=true;s.lockDay=ws.day;s.lockStart=ws.startTime;s.lockEnd=ws.endTime;
+    saveShows();
+    toast(showName+' locked \u2014 recurs '+ws.day+' at the same time every week');
+  }
+  const panel=document.getElementById('panel-'+day);
+  if(panel&&panel.classList.contains('active'))panel.innerHTML=buildDayPanel(day);
 }
 
 async function saveDay(day){
@@ -1185,6 +1233,8 @@ async function loadShows(){
   if(r&&r.success){
     if(Array.isArray(r.shows))showsCatalog=r.shows;
     if(status)status.style.display='none';
+    applyLockedShows();
+    buildDayTabs();
   } else {
     // Backend couldn't return shows (script not deployed / wrong action). Keep what we have, warn.
     if(status){
