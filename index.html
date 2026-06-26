@@ -462,8 +462,10 @@ function checkAppPassword(){
 const SCRIPT_URL="https://script.google.com/macros/s/AKfycbz9iOMcAgp0q6PpZ1whQEvVXYY27E9mQp675vkuYxKyxy5nYGkDOnQN3nIxPreGSVtH/exec";
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const TZ_OFF={ET:0,CT:1,MT:2,PT:3,GMT:-5,CET:-6,IST:-10.5,AEST:-16};
-// Ops Breaks: every leftover idle gap in the working day is labeled as an Ops Break (see generateDay).
-const MIN_GAP_FILL=15; // minimum idle minutes to count a gap as a break
+// Two daily Ops Breaks (30 min each), at the SAME clock times every day, in ET minutes-past-midnight.
+// Change these two values to retime the breaks. On show days a break slides just past any show it lands on.
+const OPS_BREAK_TIMES=[13*60+30, 16*60]; // 1:30 PM and 4:00 PM ET
+const BREAK_MIN_GAP=90; // minimum minutes between the two breaks (prevents stacking on show days)
 let submissions=[],blockCounts={},roster=[],offDays=[],readTypes={},dayOrders={},dayExclusions={},liveAnchors={},dayScheduleStart={},liveStartTime='17:00',producerUnlocked=false;
 // --- State that was missing from this file (restored) ---
 let weekData={},weekShows={},additionalReads={},showsCatalog=[],liveShowPrepTime=30,currentDay='Monday';
@@ -1516,11 +1518,26 @@ function generateDay(day,rebuildTabs=true){
   // Shows are LOCKED: their full footprint (ops prep -> tech check -> show end) is blocked time.
   const blocks=dayShows.map(s=>({start:s.startMins-s.techCheck-s.opsPrep,end:s.endMins})).sort((a,b)=>a.start-b.start);
 
+  // Two Ops Breaks at the SAME times every day, reserved up front so reads schedule around them.
+  // If a break time lands inside a show it slides just past it; the two are kept apart so they never stack.
+  const opsBreaks=[];
+  OPS_BREAK_TIMES.slice().sort((a,b)=>a-b).forEach(t=>{
+    let s=t;
+    if(opsBreaks.length)s=Math.max(s,opsBreaks[opsBreaks.length-1].end+BREAK_MIN_GAP);
+    let guard=0;
+    while(guard<60){
+      const hit=blocks.concat(opsBreaks).find(b=>s<b.end&&(s+30)>b.start);
+      if(!hit)break;
+      s=hit.end;guard++;
+    }
+    if(s+30<=19*60)opsBreaks.push({start:s,end:s+30});
+  });
+  opsBreaks.forEach(b=>blocks.push(b));
+  blocks.sort((a,b)=>a.start-b.start);
+
   const placedReads=[];
-  // Occupied time for fitting = show blocks + each placed read. (Breaks are added afterward from leftover gaps.)
-  // For placement, reserve a 30-min turnaround after each read so consecutive reads are spaced.
-  // That spacing (and any larger downtime) is turned into Ops Breaks by the gap-fill below.
-  const occupied=()=>blocks.concat(placedReads.map(r=>({start:r.start,end:r.end+30})));
+  // Occupied time for fitting = show blocks + the two ops breaks + each placed read.
+  const occupied=()=>blocks.concat(placedReads.map(r=>({start:r.start,end:r.end})));
   const earliestSlot=(wins,dur)=>{
     const occ=occupied();
     for(const w of wins){
@@ -1564,16 +1581,10 @@ function generateDay(day,rebuildTabs=true){
     }
   });
 
-  // Turn every leftover idle gap (downtime between reads/shows) into an Ops Break.
-  const occSorted=blocks.concat(placedReads.map(r=>({start:r.start,end:r.end}))).sort((a,b)=>a.start-b.start);
-  let gapCursor=OPS_END;
-  occSorted.forEach(iv=>{
-    if(iv.start-gapCursor>=MIN_GAP_FILL){
-      const bs=gapCursor,be=iv.start;
-      dayEvents.push({type:'break',startMins:bs,endMins:be,label:'Ops Break '+fmt(bs)+' - '+fmt(be)+' ET ('+fmtPT(bs)+' - '+fmtPT(be)+' PT)'});
-      calEvents.push({title:'Ops Break',start:toISO(bs),end:toISO(be),description:'Ops Break',color:'flamingo'});
-    }
-    gapCursor=Math.max(gapCursor,iv.end);
+  // Emit the two daily Ops Breaks.
+  opsBreaks.forEach(b=>{
+    dayEvents.push({type:'break',startMins:b.start,endMins:b.end,label:'Ops Break '+fmt(b.start)+' - '+fmt(b.end)+' ET ('+fmtPT(b.start)+' - '+fmtPT(b.end)+' PT)'});
+    calEvents.push({title:'Ops Break',start:toISO(b.start),end:toISO(b.end),description:'Ops Break',color:'flamingo'});
   });
 
   dayShows.forEach(show=>{
