@@ -1518,7 +1518,9 @@ function generateDay(day,rebuildTabs=true){
 
   const placedReads=[];
   // Occupied time for fitting = show blocks + each placed read. (Breaks are added afterward from leftover gaps.)
-  const occupied=()=>blocks.concat(placedReads.map(r=>({start:r.start,end:r.end})));
+  // For placement, reserve a 30-min turnaround after each read so consecutive reads are spaced.
+  // That spacing (and any larger downtime) is turned into Ops Breaks by the gap-fill below.
+  const occupied=()=>blocks.concat(placedReads.map(r=>({start:r.start,end:r.end+30})));
   const earliestSlot=(wins,dur)=>{
     const occ=occupied();
     for(const w of wins){
