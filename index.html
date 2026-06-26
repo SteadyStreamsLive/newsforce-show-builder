@@ -950,8 +950,12 @@ function buildDayPanel(day){
   const schedStart=dayScheduleStart[day]||'11:00';
 
   const dayShowsHTML=showsCatalog.map(s=>{
-    const ws=weekShows[s.name]||{};
-    const selected=ws.day===day;
+    const sched=weekShows[s.name]||{};
+    const ws=sched[day]||{};
+    const selected=!!sched[day];
+    const locks=s.locks||{};
+    const lockedHere=!!locks[day];
+    const otherLockDays=Object.keys(locks).filter(d=>d!==day);
     const st=selected?(ws.startTime||''):'';
     const et=selected?(ws.endTime||''):'';
     const safeName=s.name.replace(/\s/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
@@ -979,8 +983,8 @@ function buildDayPanel(day){
         ${roster.length?roster.map(n=>{const on=(ws.anchors||[]).includes(n);return `<button class="show-anchor-chip ${on?'active':''}" onclick="toggleShowAnchor('${s.name}','${day}','${n}',this)">${n}</button>`;}).join(''):'<span style="font-size:11px;color:var(--muted);">No roster anchors</span>'}
         <input type="text" id="shg-${safeName}-${day}" value="${(ws.guests||[]).join(', ')}" placeholder="Guests (comma separated)" class="show-guest-input" onblur="setShowGuests('${s.name}','${day}',this.value)" />
       </div>
-      <button class="show-lock-btn ${s.locked?'on':''}" onclick="toggleShowLock('${s.name}','${day}')">${s.locked?('\uD83D\uDD12 Recurring every '+day+' \u00B7 tap to unlock'):('\uD83D\uDD13 Not recurring \u00B7 tap to lock to every '+day)}</button>`
-        :(s.locked&&s.lockDay&&s.lockDay!==day?`<span class="show-lock-note">\uD83D\uDD12 Recurs ${s.lockDay}</span>`:'')}
+      <button class="show-lock-btn ${lockedHere?'on':''}" onclick="toggleShowLock('${s.name}','${day}')">${lockedHere?('\uD83D\uDD12 Recurring every '+day+' \u00B7 tap to unlock'):('\uD83D\uDD13 Not recurring \u00B7 tap to lock to every '+day)}</button>`
+        :(otherLockDays.length?`<span class="show-lock-note">\uD83D\uDD12 Recurs ${otherLockDays.join(', ')}</span>`:'')}
     </div>`;
   }).join('');
 
@@ -1088,21 +1092,22 @@ function applyShowTimeFull(showName,day){
   const startT=parse('shst-hm-'+safeName+'-'+day,'shst-ap-'+safeName+'-'+day);
   const endT=parse('shet-hm-'+safeName+'-'+day,'shet-ap-'+safeName+'-'+day);
   if(!weekShows[showName])weekShows[showName]={};
-  weekShows[showName].day=day;
-  weekShows[showName].startTime=startT;
-  weekShows[showName].endTime=endT;
+  if(!weekShows[showName][day])weekShows[showName][day]={anchors:[],guests:[]};
+  weekShows[showName][day].startTime=startT;
+  weekShows[showName][day].endTime=endT;
   const slk=showsCatalog.find(x=>x.name===showName);
-  if(slk&&slk.locked&&slk.lockDay===day){slk.lockStart=startT;slk.lockEnd=endT;saveShows();}
+  if(slk&&slk.locks&&slk.locks[day]){slk.locks[day]={start:startT,end:endT};saveShows();}
   saveWeekShows();
 }
 
 function toggleShowDay(showName,day,checked){
   if(!weekShows[showName])weekShows[showName]={};
-  weekShows[showName].day=checked?day:'';
-  if(!checked){
-    weekShows[showName].startTime='';weekShows[showName].endTime='';
+  if(checked){
+    if(!weekShows[showName][day])weekShows[showName][day]={startTime:'',endTime:'',anchors:[],guests:[]};
+  } else {
+    delete weekShows[showName][day];
     const s=showsCatalog.find(x=>x.name===showName);
-    if(s&&s.locked){s.locked=false;s.lockDay='';s.lockStart='';s.lockEnd='';saveShows();}
+    if(s&&s.locks&&s.locks[day]){delete s.locks[day];saveShows();}
   }
   saveWeekShows();
   const panel=document.getElementById('panel-'+day);
@@ -1116,7 +1121,8 @@ async function saveWeekShows(){
 
 function toggleShowAnchor(showName,day,anchorName,btn){
   if(!weekShows[showName])weekShows[showName]={};
-  const arr=weekShows[showName].anchors||(weekShows[showName].anchors=[]);
+  if(!weekShows[showName][day])weekShows[showName][day]={startTime:'',endTime:'',anchors:[],guests:[]};
+  const arr=weekShows[showName][day].anchors||(weekShows[showName][day].anchors=[]);
   const i=arr.indexOf(anchorName);
   if(i>=0)arr.splice(i,1); else arr.push(anchorName);
   if(btn)btn.classList.toggle('active');
@@ -1125,40 +1131,43 @@ function toggleShowAnchor(showName,day,anchorName,btn){
 
 function setShowGuests(showName,day,val){
   if(!weekShows[showName])weekShows[showName]={};
-  weekShows[showName].guests=val.split(',').map(g=>g.trim()).filter(Boolean);
+  if(!weekShows[showName][day])weekShows[showName][day]={startTime:'',endTime:'',anchors:[],guests:[]};
+  weekShows[showName][day].guests=val.split(',').map(g=>g.trim()).filter(Boolean);
   saveWeekShows();
 }
 
-// Locked shows recur every week at the same day/time. Auto-fill them into the current week if absent.
+// Locked shows recur every week. Each locked day auto-fills into the current week if absent.
 function applyLockedShows(){
   let changed=false;
   showsCatalog.forEach(s=>{
-    if(s.locked&&s.lockDay){
-      const ws=weekShows[s.name];
-      if(!ws||!ws.day){
-        weekShows[s.name]={day:s.lockDay,startTime:s.lockStart||'',endTime:s.lockEnd||'',anchors:(ws&&ws.anchors)||[],guests:(ws&&ws.guests)||[]};
+    const locks=s.locks||{};
+    Object.keys(locks).forEach(day=>{
+      if(!weekShows[s.name])weekShows[s.name]={};
+      const existing=weekShows[s.name][day];
+      if(!existing||!existing.startTime){
+        weekShows[s.name][day]={startTime:locks[day].start||'',endTime:locks[day].end||'',anchors:(existing&&existing.anchors)||[],guests:(existing&&existing.guests)||[]};
         changed=true;
       }
-    }
+    });
   });
   if(changed)saveWeekShows();
 }
 
 function toggleShowLock(showName,day){
   const s=showsCatalog.find(x=>x.name===showName);if(!s)return;
-  if(s.locked){
-    // Unlock: stop recurring AND reset this day's slot (uncheck box + clear time).
-    s.locked=false;s.lockDay='';s.lockStart='';s.lockEnd='';
-    weekShows[showName]={day:'',startTime:'',endTime:'',anchors:[],guests:[]};
+  if(!s.locks)s.locks={};
+  if(s.locks[day]){
+    // Unlock just this day: stop it recurring + reset this day's slot (uncheck box + clear time).
+    delete s.locks[day];
+    if(weekShows[showName])delete weekShows[showName][day];
     saveShows();saveWeekShows();
-    toast(showName+' unlocked \u2014 reset for this day');
+    toast(showName+' unlocked for '+day);
   } else {
-    // Lock: latch the current day + time as the weekly slot.
-    const ws=weekShows[showName]||{};
-    if(ws.day!==day||!ws.startTime||!ws.endTime){toast('Set this day and a start/end time first, then lock.');return;}
-    s.locked=true;s.lockDay=ws.day;s.lockStart=ws.startTime;s.lockEnd=ws.endTime;
+    const ws=(weekShows[showName]||{})[day];
+    if(!ws||!ws.startTime||!ws.endTime){toast('Set this day and a start/end time first, then lock.');return;}
+    s.locks[day]={start:ws.startTime,end:ws.endTime};
     saveShows();
-    toast(showName+' locked \u2014 recurs '+ws.day+' at the same time every week');
+    toast(showName+' locked \u2014 recurs every '+day+' at the same time');
   }
   const panel=document.getElementById('panel-'+day);
   if(panel&&panel.classList.contains('active'))panel.innerHTML=buildDayPanel(day);
@@ -1341,8 +1350,8 @@ function renderShowsCatalog(){
 function getShowsForDay(day){
   const result=[];
   showsCatalog.forEach(s=>{
-    const ws=weekShows[s.name];
-    if(!ws||ws.day!==day||!ws.startTime||!ws.endTime)return;
+    const ws=(weekShows[s.name]||{})[day];
+    if(!ws||!ws.startTime||!ws.endTime)return;
     const [sh,sm]=ws.startTime.split(':').map(Number);
     const [eh,em]=ws.endTime.split(':').map(Number);
     const startMins=sh*60+sm, endMins=eh*60+em;
