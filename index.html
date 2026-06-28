@@ -501,17 +501,28 @@
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
         <select id="sched-tz" onchange="onSchedZoneChange()" title="Show times in" style="padding:7px 9px;background:var(--dark3);border:1px solid var(--border2);border-radius:4px;color:var(--white);font-family:'Barlow',sans-serif;font-size:13px;cursor:pointer;">
           <option value="">Auto (your time)</option>
-          <option value="America/New_York">Eastern (studio)</option>
-          <option value="America/Chicago">Central</option>
-          <option value="America/Denver">Mountain</option>
-          <option value="America/Los_Angeles">Pacific</option>
-          <option value="America/Anchorage">Alaska</option>
-          <option value="Pacific/Honolulu">Hawaii</option>
-          <option value="Europe/London">London</option>
-          <option value="Europe/Paris">Central Europe</option>
-          <option value="Asia/Kolkata">India</option>
-          <option value="Asia/Tokyo">Tokyo</option>
-          <option value="Australia/Sydney">Sydney</option>
+          <option value="Pacific/Honolulu">HST &middot; Hawaii</option>
+          <option value="America/Anchorage">AKST &middot; Alaska</option>
+          <option value="America/Los_Angeles">PST &middot; Pacific</option>
+          <option value="America/Denver">MST &middot; Mountain</option>
+          <option value="America/Phoenix">MST &middot; Arizona</option>
+          <option value="America/Chicago">CST &middot; Central</option>
+          <option value="America/New_York">EST &middot; Eastern</option>
+          <option value="America/Halifax">AST &middot; Atlantic</option>
+          <option value="America/Sao_Paulo">BRT &middot; Brazil</option>
+          <option value="UTC">UTC</option>
+          <option value="Europe/London">GMT &middot; London</option>
+          <option value="Europe/Paris">CET &middot; Central Europe</option>
+          <option value="Europe/Athens">EET &middot; Eastern Europe</option>
+          <option value="Europe/Moscow">MSK &middot; Moscow</option>
+          <option value="Asia/Dubai">GST &middot; Gulf</option>
+          <option value="Asia/Kolkata">IST &middot; India</option>
+          <option value="Asia/Bangkok">ICT &middot; SE Asia</option>
+          <option value="Asia/Shanghai">CST &middot; China</option>
+          <option value="Asia/Singapore">SGT &middot; Singapore</option>
+          <option value="Asia/Tokyo">JST &middot; Japan / Korea</option>
+          <option value="Australia/Sydney">AEST &middot; Sydney</option>
+          <option value="Pacific/Auckland">NZST &middot; New Zealand</option>
         </select>
         <button class="ghost-btn" onclick="schedWeekStep(-1)" title="Previous week" style="padding:7px 11px;">&lsaquo;</button>
         <input type="date" id="sched-week" onchange="onSchedWeekChange()" style="padding:7px 10px;background:var(--dark3);border:1px solid var(--border2);border-radius:4px;color:var(--white);font-family:'Barlow',sans-serif;font-size:13px;">
