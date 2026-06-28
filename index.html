@@ -211,6 +211,9 @@
     .show-lock-btn.on{background:rgba(255,159,10,0.14);border:1px solid var(--amber);border-style:solid;color:var(--amber);}
     .show-lock-note{font-size:10px;font-weight:700;color:var(--amber);letter-spacing:0.04em;}
     .glance-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
+    .glance-legend{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+    .leg-chip{display:inline-flex;align-items:center;gap:6px;font-family:'Barlow',sans-serif;font-size:12px;font-weight:600;color:var(--white);padding:4px 9px;border:1px solid var(--border2);border-radius:99px;}
+    .leg-chip i{width:10px;height:10px;border-radius:3px;display:inline-block;}
     .glance-day{background:var(--dark2);border:1px solid var(--border);border-radius:6px;padding:10px;}
     .glance-head{font-family:'Barlow',sans-serif;font-weight:700;font-size:13px;color:var(--accent);letter-spacing:0.05em;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:6px;}
     .glance-head span{color:var(--muted);font-weight:500;}
@@ -235,6 +238,7 @@
       .glance-item{background:#f4f4f4;}
       .glance-text,.glance-head{color:#000;}
       .glance-time{color:#555;}
+      .leg-chip{color:#000;border-color:#999;}
     }
     .show-week-row{display:flex;align-items:center;gap:10px;background:var(--dark2);border:1px solid var(--border);border-radius:4px;padding:8px 12px;margin-bottom:6px;flex-wrap:wrap;}
     .show-week-name{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--accent);min-width:120px;}
@@ -478,7 +482,9 @@
         <p class="hero-sub" id="glance-range">A read-only view of the whole week.</p>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        <button class="ghost-btn" onclick="schedWeekStep(-1)" title="Previous week" style="padding:7px 11px;">&lsaquo;</button>
         <input type="date" id="sched-week" onchange="onSchedWeekChange()" style="padding:7px 10px;background:var(--dark3);border:1px solid var(--border2);border-radius:4px;color:var(--white);font-family:'Barlow',sans-serif;font-size:13px;">
+        <button class="ghost-btn" onclick="schedWeekStep(1)" title="Next week" style="padding:7px 11px;">&rsaquo;</button>
         <button class="ghost-btn" onclick="refreshGlance()">Refresh</button>
         <button class="ghost-btn" onclick="downloadScheduleText()">Download Text</button>
         <button class="ghost-btn" onclick="downloadScheduleICS()">Download ICS</button>
@@ -486,6 +492,7 @@
         <button class="accent-btn" id="sched-share-btn" onclick="copyShareLink()">Copy share link</button>
       </div>
     </div>
+    <div id="glance-legend" class="glance-legend"></div>
     <div id="glance-grid" class="glance-grid"></div>
   </div>
   </div>
@@ -1803,18 +1810,18 @@ function glanceLineInfo(line){
   const toMin=m=>{let h=parseInt(m[1],10)%12; if(/PM/i.test(m[3]))h+=12; return h*60+parseInt(m[2],10);};
   let startMin=toMin(times[0]);
   let endMin=times.length>1?toMin(times[times.length-1]):startMin+30;
-  let label,cls='other';
-  if(line.startsWith('[SHOW]')){ label=line.replace('[SHOW]','').split(':')[0].trim(); cls='show'; const a=line.match(/Anchors:\s*([^|]+?)(?:\s*\||\s*$)/); if(a)label+=' \u00B7 '+a[1].trim(); }
+  let label,cls='other',owner=null;
+  if(line.startsWith('[SHOW]')){ const nm=line.replace('[SHOW]','').split(':')[0].trim(); label=nm; cls='show'; owner=nm; const a=line.match(/Anchors:\s*([^|]+?)(?:\s*\||\s*$)/); if(a)label+=' \u00B7 '+a[1].trim(); }
   else if(/^Ops Break/i.test(line)){ label='Ops Break'; cls='break'; }
   else if(/Daily SOT/i.test(line)){ label='Ops Prep / SOT Check'; cls='prep'; }
   else if(/^Playback/i.test(line)){ label='Playback'; cls='play'; endMin=startMin+15; }
-  else if(/\|\s*Ops Prep:/i.test(line)){ label=line.split('|')[0].trim()+' \u2014 ops prep'; cls='prep'; }
-  else if(/\|\s*Tech Check:/i.test(line)){ label=line.split('|')[0].trim()+' \u2014 tech check'; cls='prep'; }
-  else if(/\|\s*Live to Tape/i.test(line)){ label=line.split('|')[0].trim(); cls='read'; }
-  else if(/\|\s*LIVE/i.test(line)){ label=line.split('|')[0].trim()+' \u2014 LIVE'; cls='live'; }
+  else if(/\|\s*Ops Prep:/i.test(line)){ const nm=line.split('|')[0].trim(); label=nm+' \u2014 ops prep'; cls='prep'; owner=nm; }
+  else if(/\|\s*Tech Check:/i.test(line)){ const nm=line.split('|')[0].trim(); label=nm+' \u2014 tech check'; cls='prep'; owner=nm; }
+  else if(/\|\s*Live to Tape/i.test(line)){ const nm=line.split('|')[0].trim(); label=nm; cls='read'; owner=nm; }
+  else if(/\|\s*LIVE/i.test(line)){ const nm=line.split('|')[0].trim(); label=nm+' \u2014 LIVE'; cls='live'; owner=nm; }
   else { label=line.split(/\d{1,2}:\d{2}/)[0].replace(/[-:|]\s*$/,'').trim()||'(item)'; }
   if(endMin<=startMin)endMin=startMin+15;
-  return {startMin,endMin,label,cls};
+  return {startMin,endMin,label,cls,owner};
 }
 
 function buildGlance(){
@@ -1823,6 +1830,19 @@ function buildGlance(){
   const range=document.getElementById('glance-range');
   if(!grid)return;
   if(range)range.textContent='Week of '+(typeof mondayToWeekRange==='function'?mondayToWeekRange(wm):wm);
+  // First pass: gather every owner (anchor/show) across the week for the legend + stable coloring.
+  const owners=[];
+  DAYS.forEach(day=>{
+    const text=(scheduleWeekData[day]||{}).generatedText||'';
+    text.split('\n').forEach(line=>{ const it=glanceLineInfo(line); if(it&&it.owner&&owners.indexOf(it.owner)<0)owners.push(it.owner); });
+  });
+  owners.sort((a,b)=>a.localeCompare(b));
+  // Legend
+  const legend=document.getElementById('glance-legend');
+  if(legend){
+    legend.innerHTML=owners.length?owners.map(o=>{const c=ownerColor(o);return '<span class="leg-chip" style="border-color:'+c+';background:linear-gradient(90deg,'+c+'33,'+c+'0d);"><i style="background:'+c+';"></i>'+o+'</span>';}).join(''):'';
+    legend.style.display=owners.length?'flex':'none';
+  }
   let html='';
   DAYS.forEach((day,i)=>{
     const dt=getDateForDay(wm,i);
@@ -1836,13 +1856,30 @@ function buildGlance(){
         const it=glanceLineInfo(line);
         if(!it)return;
         if(it.warn){ rows.push('<div class="glance-item g-warn"><span class="glance-text">'+it.label+'</span></div>'); return; }
-        rows.push('<div class="glance-item g-'+it.cls+'"><span class="glance-time">'+fmt(it.startMin)+'</span><span class="glance-text">'+it.label+'</span></div>');
+        let style='';
+        if(it.owner){ const c=ownerColor(it.owner); style=' style="border-left-color:'+c+';background:linear-gradient(90deg,'+c+'40,'+c+'0d);"'; }
+        rows.push('<div class="glance-item g-'+it.cls+'"'+style+'><span class="glance-time">'+fmt(it.startMin)+'</span><span class="glance-text">'+it.label+'</span></div>');
       });
       body=rows.length?rows.join(''):'<div class="glance-empty">No items</div>';
     }
     html+='<div class="glance-day"><div class="glance-head">'+day.slice(0,3).toUpperCase()+' <span>'+ds+'</span></div>'+body+'</div>';
   });
   grid.innerHTML=html;
+}
+
+// Stable pastel color per anchor/show name.
+const GLANCE_PALETTE=['#ff6b6b','#4dabf7','#51cf66','#cc5de8','#ff922b','#22b8cf','#fcc419','#f06595','#94d82d','#5c7cfa','#20c997','#e67700','#d6336c'];
+function ownerColor(name){
+  let h=0; for(let i=0;i<name.length;i++){ h=(h*31+name.charCodeAt(i))>>>0; }
+  return GLANCE_PALETTE[h%GLANCE_PALETTE.length];
+}
+function schedWeekStep(d){
+  const cur=getSchedWeek();
+  const dt=new Date(cur+'T12:00:00'); dt.setDate(dt.getDate()+d*7);
+  const pad=n=>String(n).padStart(2,'0');
+  const wm=dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());
+  const inp=document.getElementById('sched-week'); if(inp)inp.value=wm;
+  loadScheduleView();
 }
 
 function downloadScheduleText(){
@@ -1878,8 +1915,8 @@ function downloadScheduleICS(){
 }
 
 function copyShareLink(){
-  const link=location.origin+location.pathname+'#schedule/'+getSchedWeek();
-  const done=()=>toast('Share link copied! Anyone with it can view this week (no password).');
+  const link=location.origin+location.pathname+'#schedule';
+  const done=()=>toast('Share link copied! It always opens the current week — viewers can use the arrows to see other weeks. No password needed.');
   if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(done,()=>prompt('Copy this link:',link)); }
   else { prompt('Copy this link:',link); }
 }
