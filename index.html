@@ -210,6 +210,32 @@
     .show-lock-btn:hover{color:var(--accent);border-color:var(--accent);}
     .show-lock-btn.on{background:rgba(255,159,10,0.14);border:1px solid var(--amber);border-style:solid;color:var(--amber);}
     .show-lock-note{font-size:10px;font-weight:700;color:var(--amber);letter-spacing:0.04em;}
+    .glance-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
+    .glance-day{background:var(--dark2);border:1px solid var(--border);border-radius:6px;padding:10px;}
+    .glance-head{font-family:'Barlow',sans-serif;font-weight:700;font-size:13px;color:var(--accent);letter-spacing:0.05em;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:6px;}
+    .glance-head span{color:var(--muted);font-weight:500;}
+    .glance-item{display:flex;flex-direction:column;gap:1px;padding:5px 8px;margin-bottom:4px;border-left:3px solid var(--border2);border-radius:3px;background:var(--dark3);}
+    .glance-time{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:0.03em;}
+    .glance-text{font-size:12px;color:var(--white);line-height:1.25;}
+    .glance-empty{font-size:12px;color:var(--muted);font-style:italic;padding:6px 0;}
+    .g-show{border-left-color:#4a9eff;}
+    .g-break{border-left-color:#ff9f0a;}
+    .g-prep{border-left-color:#b79cff;}
+    .g-read{border-left-color:#ff5c5c;}
+    .g-live{border-left-color:var(--accent);}
+    .g-play{border-left-color:#d17fff;}
+    .g-warn{border-left-color:#ff5c5c;background:rgba(255,92,92,0.12);}
+    .g-warn .glance-text{color:#ff9f9f;}
+    @media print{
+      body *{visibility:hidden;}
+      #view-glance,#view-glance *{visibility:visible;}
+      #view-glance{position:absolute;left:0;top:0;width:100%;background:#fff;color:#000;}
+      #view-glance .hero-strip button{display:none;}
+      .glance-day{background:#fff;border:1px solid #999;break-inside:avoid;}
+      .glance-item{background:#f4f4f4;}
+      .glance-text,.glance-head{color:#000;}
+      .glance-time{color:#555;}
+    }
     .show-week-row{display:flex;align-items:center;gap:10px;background:var(--dark2);border:1px solid var(--border);border-radius:4px;padding:8px 12px;margin-bottom:6px;flex-wrap:wrap;}
     .show-week-name{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--accent);min-width:120px;}
     .mini-stepper{display:inline-flex;align-items:center;gap:4px;background:var(--dark3);border:1px solid var(--border2);border-radius:4px;padding:2px 5px;}
@@ -271,6 +297,7 @@
   </div>
   <span class="live-badge"><span class="live-dot"></span>Live</span>
   <button class="nav-btn active" onclick="switchView('form',this)">Talent View</button>
+  <button class="nav-btn" id="glance-nav-btn" onclick="requestGlance(this)">At a Glance</button>
   <button class="nav-btn" id="shows-nav-btn" onclick="requestShows(this)">Shows</button>
   <button class="nav-btn" id="producer-nav-btn" onclick="requestProducer(this)">Producer</button>
 </div>
@@ -441,6 +468,21 @@
     </div>
     <div class="section-label">Your Shows</div>
     <div id="shows-catalog-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+  </div>
+
+  <!-- AT A GLANCE VIEW -->
+  <div class="view" id="view-glance">
+    <div class="hero-strip">
+      <div>
+        <h2 class="hero-title">Week at a Glance</h2>
+        <p class="hero-sub" id="glance-range">A quick read-only view of the whole week.</p>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="ghost-btn" onclick="refreshGlance()">Refresh</button>
+        <button class="accent-btn" onclick="window.print()">Print</button>
+      </div>
+    </div>
+    <div id="glance-grid" class="glance-grid"></div>
   </div>
   </div>
 <div class="toast" id="toast"></div>
@@ -1714,6 +1756,61 @@ function switchView(view,btn){
   if(view==='shows'){
     loadShows();
   }
+  if(view==='glance'){
+    loadWeek().then(()=>buildGlance());
+  }
+}
+
+function requestGlance(btn){requestProtected('glance',btn);}
+function refreshGlance(){ loadWeek().then(()=>buildGlance()); }
+
+// Parse a generated day's text into compact {start,label,cls} rows for the at-a-glance grid.
+function parseDayLines(text){
+  const out=[];
+  (text||'').split('\n').forEach(raw=>{
+    const line=raw.trim(); if(!line)return;
+    if(line[0]==='*'){ out.push({start:'',label:line.replace(/^\*\s*/,''),cls:'warn'}); return; }
+    const tm=line.match(/(\d{1,2}:\d{2})\s*(AM|PM)/i);
+    if(!tm)return;
+    const start=tm[1]+' '+tm[2].toUpperCase();
+    let label,cls='other';
+    if(line.startsWith('[SHOW]')){
+      label=line.replace('[SHOW]','').split(':')[0].trim(); cls='show';
+      const a=line.match(/Anchors:\s*([^|]+?)(?:\s*\||\s*$)/); if(a)label+=' \u00B7 '+a[1].trim();
+    } else if(/^Ops Break/i.test(line)){ label='Ops Break'; cls='break'; }
+    else if(/Daily SOT/i.test(line)){ label='Ops Prep / SOT Check'; cls='prep'; }
+    else if(/^Playback/i.test(line)){ label='Playback'; cls='play'; }
+    else if(/\|\s*Ops Prep:/i.test(line)){ label=line.split('|')[0].trim()+' \u2014 ops prep'; cls='prep'; }
+    else if(/\|\s*Tech Check:/i.test(line)){ label=line.split('|')[0].trim()+' \u2014 tech check'; cls='prep'; }
+    else if(/\|\s*Live to Tape/i.test(line)){ label=line.split('|')[0].trim(); cls='read'; }
+    else if(/\|\s*LIVE/i.test(line)){ label=line.split('|')[0].trim()+' \u2014 LIVE'; cls='live'; }
+    else { label=line.split(/\d{1,2}:\d{2}/)[0].replace(/[-:|]\s*$/,'').trim()||'(item)'; }
+    out.push({start,label,cls});
+  });
+  return out;
+}
+
+function buildGlance(){
+  const wm=getWeekMonday();
+  const grid=document.getElementById('glance-grid');
+  const range=document.getElementById('glance-range');
+  if(!grid)return;
+  if(!wm){grid.innerHTML='<p style="color:var(--muted);">Pick a week in the Producer view first.</p>';return;}
+  if(range)range.textContent='Week of '+(typeof mondayToWeekRange==='function'?mondayToWeekRange(wm):wm);
+  let html='';
+  DAYS.forEach((day,i)=>{
+    const dt=getDateForDay(wm,i);
+    const ds=dt?dt.toLocaleDateString('en-US',{month:'numeric',day:'numeric'}):'';
+    const text=(weekData[day]||{}).generatedText||'';
+    let body;
+    if(!text){ body='<div class="glance-empty">Not generated yet</div>'; }
+    else {
+      const items=parseDayLines(text);
+      body=items.length?items.map(it=>`<div class="glance-item g-${it.cls}">${it.start?'<span class="glance-time">'+it.start+'</span>':''}<span class="glance-text">${it.label}</span></div>`).join(''):'<div class="glance-empty">No items</div>';
+    }
+    html+=`<div class="glance-day"><div class="glance-head">${day.slice(0,3).toUpperCase()} <span>${ds}</span></div>${body}</div>`;
+  });
+  grid.innerHTML=html;
 }
 
 
