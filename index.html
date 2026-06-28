@@ -1985,22 +1985,27 @@ function zoneCode(tz){ return liveCode(tz) || ZONE_CODE[tz] || zoneShortName(tz)
 
 // Live world clocks for our team locations.
 const WORLD_CLOCKS=[
-  {label:'Eastern', tz:'America/New_York'},
-  {label:'Central', tz:'America/Chicago'},
-  {label:'Mountain', tz:'America/Denver'},
-  {label:'Pacific', tz:'America/Los_Angeles'},
-  {label:'London', tz:'Europe/London'},
-  {label:'Brussels', tz:'Europe/Brussels'}
+  {label:'Eastern', tz:'America/New_York', cc:'US'},
+  {label:'Central', tz:'America/Chicago', cc:'US'},
+  {label:'Mountain', tz:'America/Denver', cc:'US'},
+  {label:'Pacific', tz:'America/Los_Angeles', cc:'US'},
+  {label:'London', tz:'Europe/London', cc:'UK'},
+  {label:'Brussels', tz:'Europe/Brussels', cc:'EU'}
 ];
+// Earliest local time first (left), latest last (right). Sorted by live UTC offset so DST never reorders wrongly.
+function sortedClocks(){
+  const now=new Date();
+  return WORLD_CLOCKS.slice().sort((a,b)=>tzOffsetMs(a.tz,now)-tzOffsetMs(b.tz,now));
+}
 function renderWorldClocks(){
   const box=document.getElementById('world-clocks'); if(!box)return;
-  box.innerHTML=WORLD_CLOCKS.map((c,i)=>'<div class="wc"><div class="wc-loc">'+c.label+'</div><div class="wc-time" id="wc-time-'+i+'">&middot;&middot;</div><div class="wc-code">'+zoneCode(c.tz)+'</div></div>').join('');
+  box.innerHTML=sortedClocks().map((c,i)=>'<div class="wc"><div class="wc-loc">'+c.label+'</div><div class="wc-time" id="wc-time-'+i+'">&middot;&middot;</div><div class="wc-code">'+zoneCode(c.tz)+' '+c.cc+'</div></div>').join('');
   updateWorldClocks();
 }
 function updateWorldClocks(){
   const box=document.getElementById('world-clocks'); if(!box||!box.offsetParent)return;
   const now=new Date();
-  WORLD_CLOCKS.forEach((c,i)=>{
+  sortedClocks().forEach((c,i)=>{
     const el=document.getElementById('wc-time-'+i); if(!el)return;
     try{ el.textContent=new Intl.DateTimeFormat('en-US',{timeZone:c.tz,hour:'numeric',minute:'2-digit',hour12:true}).format(now); }catch(e){}
   });
