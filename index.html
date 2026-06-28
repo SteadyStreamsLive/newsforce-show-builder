@@ -212,6 +212,11 @@
     .show-lock-note{font-size:10px;font-weight:700;color:var(--amber);letter-spacing:0.04em;}
     .glance-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
     .glance-legend{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+    .ics-picker{flex-direction:column;gap:5px;background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:12px;margin-bottom:14px;max-width:380px;}
+    .ics-pick-title{font-family:'Barlow',sans-serif;font-weight:700;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;}
+    .ics-pick-row{display:flex;align-items:center;gap:9px;text-align:left;background:var(--dark3);border:1px solid var(--border);border-radius:5px;padding:8px 11px;color:var(--white);font-family:'Barlow',sans-serif;font-size:13px;cursor:pointer;transition:border-color 0.12s;}
+    .ics-pick-row:hover{border-color:var(--accent);}
+    .ics-pick-row i{width:11px;height:11px;border-radius:3px;display:inline-block;flex:0 0 auto;}
     .leg-chip{display:inline-flex;align-items:center;gap:6px;font-family:'Barlow',sans-serif;font-size:12px;font-weight:600;color:var(--white);padding:4px 9px;border:1px solid var(--border2);border-radius:99px;}
     .leg-chip i{width:10px;height:10px;border-radius:3px;display:inline-block;}
     .glance-day{background:var(--dark2);border:1px solid var(--border);border-radius:6px;padding:10px;}
@@ -236,6 +241,7 @@
       #view-glance{position:absolute;left:0;top:0;width:100%;background:#fff;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
       #view-glance .hero-strip{margin:0 0 4px;}
       #view-glance .hero-strip>div:last-child{display:none!important;}
+      #ics-picker{display:none!important;}
       .hero-title{font-size:15px!important;margin:0!important;}
       .hero-sub{font-size:9px!important;margin:1px 0 0!important;}
       .glance-legend{gap:3px;margin:5px 0 7px;}
@@ -496,11 +502,12 @@
         <button class="ghost-btn" onclick="schedWeekStep(1)" title="Next week" style="padding:7px 11px;">&rsaquo;</button>
         <button class="ghost-btn" onclick="refreshGlance()">Refresh</button>
         <button class="ghost-btn" onclick="downloadScheduleText()">Download Text</button>
-        <button class="ghost-btn" onclick="downloadScheduleICS()">Download ICS</button>
+        <button class="ghost-btn" onclick="toggleICSPicker()">Download ICS &#9662;</button>
         <button class="ghost-btn" onclick="window.print()">Print</button>
         <button class="accent-btn" id="sched-share-btn" onclick="copyShareLink()">Copy share link</button>
       </div>
     </div>
+    <div id="ics-picker" class="ics-picker" style="display:none;"></div>
     <div id="glance-legend" class="glance-legend"></div>
     <div id="glance-grid" class="glance-grid"></div>
   </div>
@@ -1840,12 +1847,7 @@ function buildGlance(){
   if(!grid)return;
   if(range)range.textContent='Week of '+(typeof mondayToWeekRange==='function'?mondayToWeekRange(wm):wm);
   // First pass: gather every owner (anchor/show) across the week for the legend + stable coloring.
-  const owners=[];
-  DAYS.forEach(day=>{
-    const text=(scheduleWeekData[day]||{}).generatedText||'';
-    text.split('\n').forEach(line=>{ const it=glanceLineInfo(line); if(it&&it.owner&&owners.indexOf(it.owner)<0)owners.push(it.owner); });
-  });
-  owners.sort((a,b)=>a.localeCompare(b));
+  const owners=glanceOwners();
   // Legend
   const legend=document.getElementById('glance-legend');
   if(legend){
@@ -1921,6 +1923,67 @@ function downloadScheduleICS(){
   const ics=generateICSContent(evs,'NewsForce Schedule');
   downloadICS(ics,'NewsForce_Schedule_'+wm+'.ics');
   toast('ICS downloaded!');
+}
+
+// Unique sorted list of every anchor/show that appears this week.
+function glanceOwners(){
+  const owners=[];
+  DAYS.forEach(day=>{
+    const text=(scheduleWeekData[day]||{}).generatedText||'';
+    text.split('\n').forEach(line=>{ const it=glanceLineInfo(line); if(it&&it.owner&&owners.indexOf(it.owner)<0)owners.push(it.owner); });
+  });
+  owners.sort((a,b)=>a.localeCompare(b));
+  return owners;
+}
+function escHTML(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+let _icsOwners=[];
+function buildICSPicker(){
+  const box=document.getElementById('ics-picker'); if(!box)return;
+  _icsOwners=glanceOwners();
+  let html='<div class="ics-pick-title">Download a calendar (.ics)</div>';
+  html+='<button class="ics-pick-row" onclick="downloadScheduleICS()"><b>Everyone &mdash; full week</b></button>';
+  _icsOwners.forEach((o,idx)=>{ const c=ownerColor(o); html+='<button class="ics-pick-row" onclick="downloadOwnerICS('+idx+')"><i style="background:'+c+';"></i>'+escHTML(o)+'</button>'; });
+  if(!_icsOwners.length)html+='<div class="glance-empty">No anchors or shows yet &mdash; generate the week first.</div>';
+  box.innerHTML=html;
+}
+function toggleICSPicker(){
+  const box=document.getElementById('ics-picker'); if(!box)return;
+  if(!box.style.display||box.style.display==='none'){ buildICSPicker(); box.style.display='flex'; }
+  else { box.style.display='none'; }
+}
+
+// Build ICS for one anchor/show: their own reads/LIVE, plus any show they anchor (and that show's prep/tech).
+function downloadOwnerICS(idx){
+  const name=_icsOwners[idx]; if(!name)return;
+  const wm=getSchedWeek();
+  // Map show -> its anchors so an anchor's calendar also picks up the shows they're on.
+  const showAnchors={};
+  DAYS.forEach(day=>{
+    const text=(scheduleWeekData[day]||{}).generatedText||'';
+    text.split('\n').forEach(line=>{
+      const l=line.trim();
+      if(l.startsWith('[SHOW]')){ const nm=l.replace('[SHOW]','').split(':')[0].trim(); const a=l.match(/Anchors:\s*([^|]+)/); showAnchors[nm]=a?a[1].split(',').map(s=>s.trim()).filter(Boolean):[]; }
+    });
+  });
+  const include={}; include[name]=true;
+  Object.keys(showAnchors).forEach(sh=>{ if(showAnchors[sh].indexOf(name)>=0)include[sh]=true; });
+  const evs=[];
+  DAYS.forEach((day,i)=>{
+    const text=(scheduleWeekData[day]||{}).generatedText; if(!text)return;
+    const dt=getDateForDay(wm,i); if(!dt)return;
+    const dateStr=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+    const iso=m=>dateStr+'T'+String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')+':00';
+    text.split('\n').forEach(line=>{
+      const it=glanceLineInfo(line);
+      if(!it||it.warn||!it.owner)return;
+      if(include[it.owner])evs.push({start:iso(it.startMin),end:iso(it.endMin),title:it.label,description:''});
+    });
+  });
+  if(!evs.length){toast('No events for '+name+' this week.');return;}
+  const ics=generateICSContent(evs,'NewsForce \u2014 '+name);
+  downloadICS(ics,'NewsForce_'+name.replace(/[^a-z0-9]+/gi,'_').replace(/^_|_$/g,'')+'_'+wm+'.ics');
+  toast(name+' calendar downloaded!');
 }
 
 function copyShareLink(){
