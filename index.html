@@ -297,7 +297,7 @@
   </div>
   <span class="live-badge"><span class="live-dot"></span>Live</span>
   <button class="nav-btn active" onclick="switchView('form',this)">Talent View</button>
-  <button class="nav-btn" id="glance-nav-btn" onclick="requestGlance(this)">At a Glance</button>
+  <button class="nav-btn" id="glance-nav-btn" onclick="requestGlance(this)">Schedule View</button>
   <button class="nav-btn" id="shows-nav-btn" onclick="requestShows(this)">Shows</button>
   <button class="nav-btn" id="producer-nav-btn" onclick="requestProducer(this)">Producer</button>
 </div>
@@ -470,16 +470,20 @@
     <div id="shows-catalog-list" style="display:flex;flex-direction:column;gap:6px;"></div>
   </div>
 
-  <!-- AT A GLANCE VIEW -->
+  <!-- SCHEDULE VIEW -->
   <div class="view" id="view-glance">
     <div class="hero-strip">
       <div>
-        <h2 class="hero-title">Week at a Glance</h2>
-        <p class="hero-sub" id="glance-range">A quick read-only view of the whole week.</p>
+        <h2 class="hero-title">Schedule View</h2>
+        <p class="hero-sub" id="glance-range">A read-only view of the whole week.</p>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        <input type="date" id="sched-week" onchange="onSchedWeekChange()" style="padding:7px 10px;background:var(--dark3);border:1px solid var(--border2);border-radius:4px;color:var(--white);font-family:'Barlow',sans-serif;font-size:13px;">
         <button class="ghost-btn" onclick="refreshGlance()">Refresh</button>
-        <button class="accent-btn" onclick="window.print()">Print</button>
+        <button class="ghost-btn" onclick="downloadScheduleText()">Download Text</button>
+        <button class="ghost-btn" onclick="downloadScheduleICS()">Download ICS</button>
+        <button class="ghost-btn" onclick="window.print()">Print</button>
+        <button class="accent-btn" id="sched-share-btn" onclick="copyShareLink()">Copy share link</button>
       </div>
     </div>
     <div id="glance-grid" class="glance-grid"></div>
@@ -1757,60 +1761,142 @@ function switchView(view,btn){
     loadShows();
   }
   if(view==='glance'){
-    loadWeek().then(()=>buildGlance());
+    const sw=document.getElementById('sched-week');
+    if(!sw.value)sw.value=nextMonday();
+    loadScheduleView();
   }
 }
 
 function requestGlance(btn){requestProtected('glance',btn);}
-function refreshGlance(){ loadWeek().then(()=>buildGlance()); }
+function refreshGlance(){ loadScheduleView(); }
 
-// Parse a generated day's text into compact {start,label,cls} rows for the at-a-glance grid.
-function parseDayLines(text){
-  const out=[];
-  (text||'').split('\n').forEach(raw=>{
-    const line=raw.trim(); if(!line)return;
-    if(line[0]==='*'){ out.push({start:'',label:line.replace(/^\*\s*/,''),cls:'warn'}); return; }
-    const tm=line.match(/(\d{1,2}:\d{2})\s*(AM|PM)/i);
-    if(!tm)return;
-    const start=tm[1]+' '+tm[2].toUpperCase();
-    let label,cls='other';
-    if(line.startsWith('[SHOW]')){
-      label=line.replace('[SHOW]','').split(':')[0].trim(); cls='show';
-      const a=line.match(/Anchors:\s*([^|]+?)(?:\s*\||\s*$)/); if(a)label+=' \u00B7 '+a[1].trim();
-    } else if(/^Ops Break/i.test(line)){ label='Ops Break'; cls='break'; }
-    else if(/Daily SOT/i.test(line)){ label='Ops Prep / SOT Check'; cls='prep'; }
-    else if(/^Playback/i.test(line)){ label='Playback'; cls='play'; }
-    else if(/\|\s*Ops Prep:/i.test(line)){ label=line.split('|')[0].trim()+' \u2014 ops prep'; cls='prep'; }
-    else if(/\|\s*Tech Check:/i.test(line)){ label=line.split('|')[0].trim()+' \u2014 tech check'; cls='prep'; }
-    else if(/\|\s*Live to Tape/i.test(line)){ label=line.split('|')[0].trim(); cls='read'; }
-    else if(/\|\s*LIVE/i.test(line)){ label=line.split('|')[0].trim()+' \u2014 LIVE'; cls='live'; }
-    else { label=line.split(/\d{1,2}:\d{2}/)[0].replace(/[-:|]\s*$/,'').trim()||'(item)'; }
-    out.push({start,label,cls});
-  });
-  return out;
+let scheduleWeekData={};
+function getSchedWeek(){
+  const v=(document.getElementById('sched-week')||{}).value;
+  return v?(snapToMonday(v)||v):nextMonday();
+}
+function onSchedWeekChange(){
+  const inp=document.getElementById('sched-week');
+  const s=snapToMonday(inp.value);
+  if(s&&s!==inp.value)inp.value=s;
+  loadScheduleView();
+}
+async function loadScheduleView(){
+  const wm=getSchedWeek();
+  const grid=document.getElementById('glance-grid');
+  if(grid)grid.innerHTML='<p style="color:var(--muted);">Loading…</p>';
+  try{
+    const r=await api({action:'getWeekData',weekMonday:wm});
+    scheduleWeekData=(r&&r.success&&r.weekData)?r.weekData:{};
+  }catch(e){ scheduleWeekData={}; }
+  buildGlance();
+}
+
+// Parse one generated line into {startMin,endMin,label,cls} (or {warn} / null). Shared by the grid and the ICS/Text exports.
+function glanceLineInfo(line){
+  line=(line||'').trim();
+  if(!line)return null;
+  if(line[0]==='*')return {warn:true,label:line.replace(/^\*\s*/,''),cls:'warn'};
+  const noPT=line.replace(/\([^)]*\)/g,' ');
+  const times=[...noPT.matchAll(/(\d{1,2}):(\d{2})\s*(AM|PM)/gi)];
+  if(!times.length)return null;
+  const toMin=m=>{let h=parseInt(m[1],10)%12; if(/PM/i.test(m[3]))h+=12; return h*60+parseInt(m[2],10);};
+  let startMin=toMin(times[0]);
+  let endMin=times.length>1?toMin(times[times.length-1]):startMin+30;
+  let label,cls='other';
+  if(line.startsWith('[SHOW]')){ label=line.replace('[SHOW]','').split(':')[0].trim(); cls='show'; const a=line.match(/Anchors:\s*([^|]+?)(?:\s*\||\s*$)/); if(a)label+=' \u00B7 '+a[1].trim(); }
+  else if(/^Ops Break/i.test(line)){ label='Ops Break'; cls='break'; }
+  else if(/Daily SOT/i.test(line)){ label='Ops Prep / SOT Check'; cls='prep'; }
+  else if(/^Playback/i.test(line)){ label='Playback'; cls='play'; endMin=startMin+15; }
+  else if(/\|\s*Ops Prep:/i.test(line)){ label=line.split('|')[0].trim()+' \u2014 ops prep'; cls='prep'; }
+  else if(/\|\s*Tech Check:/i.test(line)){ label=line.split('|')[0].trim()+' \u2014 tech check'; cls='prep'; }
+  else if(/\|\s*Live to Tape/i.test(line)){ label=line.split('|')[0].trim(); cls='read'; }
+  else if(/\|\s*LIVE/i.test(line)){ label=line.split('|')[0].trim()+' \u2014 LIVE'; cls='live'; }
+  else { label=line.split(/\d{1,2}:\d{2}/)[0].replace(/[-:|]\s*$/,'').trim()||'(item)'; }
+  if(endMin<=startMin)endMin=startMin+15;
+  return {startMin,endMin,label,cls};
 }
 
 function buildGlance(){
-  const wm=getWeekMonday();
+  const wm=getSchedWeek();
   const grid=document.getElementById('glance-grid');
   const range=document.getElementById('glance-range');
   if(!grid)return;
-  if(!wm){grid.innerHTML='<p style="color:var(--muted);">Pick a week in the Producer view first.</p>';return;}
   if(range)range.textContent='Week of '+(typeof mondayToWeekRange==='function'?mondayToWeekRange(wm):wm);
   let html='';
   DAYS.forEach((day,i)=>{
     const dt=getDateForDay(wm,i);
     const ds=dt?dt.toLocaleDateString('en-US',{month:'numeric',day:'numeric'}):'';
-    const text=(weekData[day]||{}).generatedText||'';
+    const text=(scheduleWeekData[day]||{}).generatedText||'';
     let body;
     if(!text){ body='<div class="glance-empty">Not generated yet</div>'; }
     else {
-      const items=parseDayLines(text);
-      body=items.length?items.map(it=>`<div class="glance-item g-${it.cls}">${it.start?'<span class="glance-time">'+it.start+'</span>':''}<span class="glance-text">${it.label}</span></div>`).join(''):'<div class="glance-empty">No items</div>';
+      const rows=[];
+      text.split('\n').forEach(line=>{
+        const it=glanceLineInfo(line);
+        if(!it)return;
+        if(it.warn){ rows.push('<div class="glance-item g-warn"><span class="glance-text">'+it.label+'</span></div>'); return; }
+        rows.push('<div class="glance-item g-'+it.cls+'"><span class="glance-time">'+fmt(it.startMin)+'</span><span class="glance-text">'+it.label+'</span></div>');
+      });
+      body=rows.length?rows.join(''):'<div class="glance-empty">No items</div>';
     }
-    html+=`<div class="glance-day"><div class="glance-head">${day.slice(0,3).toUpperCase()} <span>${ds}</span></div>${body}</div>`;
+    html+='<div class="glance-day"><div class="glance-head">'+day.slice(0,3).toUpperCase()+' <span>'+ds+'</span></div>'+body+'</div>';
   });
   grid.innerHTML=html;
+}
+
+function downloadScheduleText(){
+  const wm=getSchedWeek();
+  const parts=[];
+  DAYS.forEach(day=>{ const t=(scheduleWeekData[day]||{}).generatedText; if(t&&t.trim())parts.push(t.trim()); });
+  const txt=parts.join('\n\n========================================\n\n');
+  if(!txt){toast('Nothing to export — this week has not been generated yet.');return;}
+  const blob=new Blob([txt],{type:'text/plain;charset=utf-8'});const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='NewsForce_Schedule_'+wm+'.txt';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  toast('Text downloaded!');
+}
+
+function downloadScheduleICS(){
+  const wm=getSchedWeek();
+  const evs=[];
+  DAYS.forEach((day,i)=>{
+    const text=(scheduleWeekData[day]||{}).generatedText; if(!text)return;
+    const dt=getDateForDay(wm,i); if(!dt)return;
+    const dateStr=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+    const iso=m=>dateStr+'T'+String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')+':00';
+    text.split('\n').forEach(line=>{
+      const it=glanceLineInfo(line);
+      if(!it||it.warn)return;
+      evs.push({start:iso(it.startMin),end:iso(it.endMin),title:it.label,description:''});
+    });
+  });
+  if(!evs.length){toast('Nothing to export — this week has not been generated yet.');return;}
+  const ics=generateICSContent(evs,'NewsForce Schedule');
+  downloadICS(ics,'NewsForce_Schedule_'+wm+'.ics');
+  toast('ICS downloaded!');
+}
+
+function copyShareLink(){
+  const link=location.origin+location.pathname+'#schedule/'+getSchedWeek();
+  const done=()=>toast('Share link copied! Anyone with it can view this week (no password).');
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(done,()=>prompt('Copy this link:',link)); }
+  else { prompt('Copy this link:',link); }
+}
+
+// Read-only public mode when opened via a #schedule share link.
+function enterPublicScheduleMode(){
+  const parts=location.hash.replace(/^#/,'').split('/');
+  let wm=nextMonday();
+  if(parts[1]&&/^\d{4}-\d{2}-\d{2}$/.test(parts[1])){ wm=snapToMonday(parts[1])||parts[1]; }
+  const lock=document.getElementById('app-lock'); if(lock)lock.style.display='none';
+  producerUnlocked=true;
+  document.querySelectorAll('.nav-btn').forEach(b=>b.style.display='none');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  const sv=document.getElementById('view-glance'); if(sv)sv.classList.add('active');
+  const sb=document.getElementById('sched-share-btn'); if(sb)sb.style.display='none';
+  const sw=document.getElementById('sched-week'); if(sw)sw.value=wm;
+  loadScheduleView();
 }
 
 
@@ -1955,6 +2041,7 @@ async function submitForm(){
 buildDays();
 document.getElementById('week-start').value=nextMonday();
 loadFormRoster();
+if((location.hash||'').toLowerCase().indexOf('#schedule')===0){ enterPublicScheduleMode(); }
 </script>
 </body>
 </html>
