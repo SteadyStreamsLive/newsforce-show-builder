@@ -238,6 +238,20 @@
     .wc-time{font-family:'Barlow Condensed','Barlow',sans-serif;font-size:21px;font-weight:700;color:var(--white);line-height:1.15;}
     .wc-code{font-size:9px;font-weight:600;color:var(--muted);letter-spacing:0.04em;}
     body.glance-active .container{max-width:1400px;}
+    .seg{display:inline-flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden;}
+    .seg-btn{background:var(--dark3);border:none;color:var(--muted);font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;padding:7px 15px;cursor:pointer;letter-spacing:0.03em;}
+    .seg-btn.active{background:var(--accent);color:#111;}
+    .glance-daytabs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px;}
+    .daytab{display:flex;flex-direction:column;align-items:center;gap:1px;background:var(--dark2);border:1px solid var(--border2);border-radius:7px;padding:6px 13px;color:var(--white);font-family:'Barlow',sans-serif;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.04em;line-height:1.15;}
+    .daytab span{font-size:10px;font-weight:500;color:var(--muted);}
+    .daytab.istoday{border-color:var(--accent);}
+    .daytab.active{background:var(--accent);border-color:var(--accent);color:#111;}
+    .daytab.active span{color:#111;}
+    .glance-solo{max-width:760px;}
+    .glance-solo .glance-head{font-size:15px;}
+    .glance-solo .glance-item{padding:8px 13px;margin-bottom:6px;}
+    .glance-solo .glance-time{font-size:12px;}
+    .glance-solo .glance-text{font-size:14px;}
     @media(max-width:620px){.glance-grid{grid-template-columns:1fr;}.wc{flex:1 1 auto;min-width:0;}}
     .glance-text{font-size:12px;color:var(--white);line-height:1.25;}
     .glance-empty{font-size:12px;color:var(--muted);font-style:italic;padding:6px 0;}
@@ -257,7 +271,7 @@
       #view-glance .hero-strip{margin:0 0 4px;}
       #view-glance .hero-strip>div:last-child{display:none!important;}
       #ics-picker{display:none!important;}
-      #world-clocks{display:none!important;}
+      #world-clocks,.glance-daytabs{display:none!important;}
       .hero-title{font-size:15px!important;margin:0!important;}
       .hero-sub{font-size:9px!important;margin:1px 0 0!important;}
       .glance-legend{gap:3px;margin:5px 0 7px;}
@@ -516,6 +530,7 @@
         <p class="hero-sub" id="glance-range">A read-only view of the whole week.</p>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        <span class="seg"><button class="seg-btn" id="mode-day" onclick="setSchedMode('day')">Day</button><button class="seg-btn" id="mode-week" onclick="setSchedMode('week')">Week</button></span>
         <select id="sched-tz" onchange="onSchedZoneChange()" title="Show times in" style="padding:7px 9px;background:var(--dark3);border:1px solid var(--border2);border-radius:4px;color:var(--white);font-family:'Barlow',sans-serif;font-size:13px;cursor:pointer;">
           <option value="">Auto (your time)</option>
           <option value="Pacific/Honolulu">HST &middot; Hawaii</option>
@@ -1895,6 +1910,69 @@ function glanceLineInfo(line){
   return {startMin,endMin,label,cls,owner};
 }
 
+let schedMode='day';   // 'day' (default) or 'week'
+let schedDayIdx=null;  // selected day index 0-6 for day view
+
+// HTML for a single day's items (shared by day view and week grid).
+function dayBodyHTML(day,dt){
+  const text=(scheduleWeekData[day]||{}).generatedText||'';
+  if(!text)return '<div class="glance-empty">Not generated yet</div>';
+  const zone=currentZone(); const etZone=(zone==='America/New_York');
+  const rows=[];
+  text.split('\n').forEach(line=>{
+    const it=glanceLineInfo(line);
+    if(!it)return;
+    if(it.warn){ rows.push('<div class="glance-item g-warn"><span class="glance-text">'+it.label+'</span></div>'); return; }
+    let style='';
+    if(it.owner){ const c=ownerColor(it.owner); style=' style="border-left-color:'+c+';background:linear-gradient(90deg,'+c+'40,'+c+'0d);"'; }
+    const isPoint=(it.cls==='play');
+    const etT=fmt(it.startMin);
+    const etR=isPoint?etT:rangeStr(etT,fmt(it.endMin));
+    let timeHtml;
+    if(etZone){ timeHtml=etR+' <span class="glance-tz">(ET)</span>'; }
+    else {
+      const lS=fmtInZone(etToInstant(dt,it.startMin),zone)||etT;
+      const lR=isPoint?lS:rangeStr(lS,fmtInZone(etToInstant(dt,it.endMin),zone)||fmt(it.endMin));
+      timeHtml=lR+' <span class="glance-tz">('+zoneCode(zone)+')</span> <span class="glance-sep">\u00B7</span> '+etR+' <span class="glance-tz">(ET)</span>';
+    }
+    rows.push('<div class="glance-item g-'+it.cls+'" data-s="'+it.startMin+'" data-e="'+it.endMin+'"'+style+'><span class="glance-time">'+timeHtml+'</span><span class="glance-text">'+it.label+'</span></div>');
+  });
+  return rows.length?rows.join(''):'<div class="glance-empty">No items</div>';
+}
+function dkeyOf(dt){ return dt?dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'):''; }
+function dayCardHTML(day,dt,extraClass){
+  const ds=dt?dt.toLocaleDateString('en-US',{month:'numeric',day:'numeric'}):'';
+  return '<div class="glance-day'+(extraClass?' '+extraClass:'')+'" data-date="'+dkeyOf(dt)+'"><div class="glance-head">'+day.slice(0,3).toUpperCase()+' <span>'+ds+'</span></div>'+dayBodyHTML(day,dt)+'</div>';
+}
+function defaultDayIdx(wm){
+  const n=etNow();
+  for(let i=0;i<7;i++){ if(dkeyOf(getDateForDay(wm,i))===n.date)return i; }
+  return 0;
+}
+function dayTabsHTML(wm){
+  const n=etNow();
+  let h='<div class="glance-daytabs">';
+  DAYS.forEach((day,i)=>{
+    const dt=getDateForDay(wm,i);
+    const ds=dt?(dt.getMonth()+1)+'/'+dt.getDate():'';
+    const cls=(i===schedDayIdx?' active':'')+(dkeyOf(dt)===n.date?' istoday':'');
+    h+='<button class="daytab'+cls+'" onclick="selectSchedDay('+i+')">'+day.slice(0,3).toUpperCase()+'<span>'+ds+'</span></button>';
+  });
+  return h+'</div>';
+}
+function selectSchedDay(i){ schedDayIdx=i; buildGlance(); }
+function setSchedMode(m){
+  schedMode=m;
+  try{ localStorage.setItem('nf_sched_mode',m); }catch(e){}
+  if(m==='day'&&schedDayIdx===null)schedDayIdx=defaultDayIdx(getSchedWeek());
+  buildGlance();
+}
+function syncModeButtons(){
+  const d=document.getElementById('mode-day'), w=document.getElementById('mode-week');
+  if(d)d.classList.toggle('active',schedMode==='day');
+  if(w)w.classList.toggle('active',schedMode==='week');
+}
+
 function buildGlance(){
   const wm=getSchedWeek();
   const grid=document.getElementById('glance-grid');
@@ -1903,47 +1981,23 @@ function buildGlance(){
   const zone=currentZone();
   const etZone=(zone==='America/New_York');
   if(range)range.textContent='Week of '+(typeof mondayToWeekRange==='function'?mondayToWeekRange(wm):wm)+'  \u00B7  times in '+zoneCode(zone)+(etZone?'':' + ET');
-  // First pass: gather every owner (anchor/show) across the week for the legend + stable coloring.
+  syncModeButtons();
+  // Legend (shared)
   const owners=glanceOwners();
-  // Legend
   const legend=document.getElementById('glance-legend');
   if(legend){
     legend.innerHTML=owners.length?owners.map(o=>{const c=ownerColor(o);return '<span class="leg-chip" style="border-color:'+c+';background:linear-gradient(90deg,'+c+'33,'+c+'0d);"><i style="background:'+c+';"></i>'+o+'</span>';}).join(''):'';
     legend.style.display=owners.length?'flex':'none';
   }
-  let html='';
-  DAYS.forEach((day,i)=>{
-    const dt=getDateForDay(wm,i);
-    const ds=dt?dt.toLocaleDateString('en-US',{month:'numeric',day:'numeric'}):'';
-    const text=(scheduleWeekData[day]||{}).generatedText||'';
-    let body;
-    if(!text){ body='<div class="glance-empty">Not generated yet</div>'; }
-    else {
-      const rows=[];
-      text.split('\n').forEach(line=>{
-        const it=glanceLineInfo(line);
-        if(!it)return;
-        if(it.warn){ rows.push('<div class="glance-item g-warn"><span class="glance-text">'+it.label+'</span></div>'); return; }
-        let style='';
-        if(it.owner){ const c=ownerColor(it.owner); style=' style="border-left-color:'+c+';background:linear-gradient(90deg,'+c+'40,'+c+'0d);"'; }
-        const isPoint=(it.cls==='play');
-        const etT=fmt(it.startMin);
-        const etR=isPoint?etT:rangeStr(etT,fmt(it.endMin));
-        let timeHtml;
-        if(etZone){ timeHtml=etR+' <span class="glance-tz">(ET)</span>'; }
-        else {
-          const lS=fmtInZone(etToInstant(dt,it.startMin),zone)||etT;
-          const lR=isPoint?lS:rangeStr(lS,fmtInZone(etToInstant(dt,it.endMin),zone)||fmt(it.endMin));
-          timeHtml=lR+' <span class="glance-tz">('+zoneCode(zone)+')</span> <span class="glance-sep">\u00B7</span> '+etR+' <span class="glance-tz">(ET)</span>';
-        }
-        rows.push('<div class="glance-item g-'+it.cls+'" data-s="'+it.startMin+'" data-e="'+it.endMin+'"'+style+'><span class="glance-time">'+timeHtml+'</span><span class="glance-text">'+it.label+'</span></div>');
-      });
-      body=rows.length?rows.join(''):'<div class="glance-empty">No items</div>';
-    }
-    const dkey=dt?dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'):'';
-    html+='<div class="glance-day" data-date="'+dkey+'"><div class="glance-head">'+day.slice(0,3).toUpperCase()+' <span>'+ds+'</span></div>'+body+'</div>';
-  });
-  grid.innerHTML=html;
+  if(schedMode==='week'){
+    grid.className='glance-grid';
+    grid.innerHTML=DAYS.map((day,i)=>dayCardHTML(day,getDateForDay(wm,i))).join('');
+  } else {
+    if(schedDayIdx===null)schedDayIdx=defaultDayIdx(wm);
+    const i=Math.max(0,Math.min(6,schedDayIdx));
+    grid.className='glance-day-wrap';
+    grid.innerHTML=dayTabsHTML(wm)+dayCardHTML(DAYS[i],getDateForDay(wm,i),'glance-solo');
+  }
   renderWorldClocks();
   markNow();
 }
@@ -1997,6 +2051,7 @@ function onSchedZoneChange(){
 function restoreSchedZone(){
   try{ const v=localStorage.getItem('nf_sched_tz'); if(v!==null)_schedZone=v; }catch(e){}
   const sel=document.getElementById('sched-tz'); if(sel)sel.value=_schedZone;
+  try{ const m=localStorage.getItem('nf_sched_mode'); if(m==='day'||m==='week')schedMode=m; }catch(e){}
 }
 
 // Clean, well-known codes for the zones we offer (the live Intl name is the fallback).
