@@ -644,6 +644,14 @@ function nextMonday(){
   const day=String(nd.getDate()).padStart(2,'0');
   return y+'-'+m+'-'+day;
 }
+// Monday of the week that contains today (the active week). Mon-start weeks; Sunday belongs to the prior Monday.
+function thisMonday(){
+  const d=new Date();
+  const off=(d.getDay()+6)%7; // 0=Mon ... 6=Sun
+  d.setDate(d.getDate()-off);
+  const pad=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
 
 function mondayToWeekRange(wm){
   if(!wm)return '';
@@ -1831,7 +1839,7 @@ function switchView(view,btn){
   }
   if(view==='glance'){
     const sw=document.getElementById('sched-week');
-    if(!sw.value)sw.value=nextMonday();
+    if(!sw.value)sw.value=thisMonday();
     restoreSchedZone();
     loadScheduleView();
   }
@@ -1843,7 +1851,7 @@ function refreshGlance(){ loadScheduleView(); }
 let scheduleWeekData={};
 function getSchedWeek(){
   const v=(document.getElementById('sched-week')||{}).value;
-  return v?(snapToMonday(v)||v):nextMonday();
+  return v?(snapToMonday(v)||v):thisMonday();
 }
 function onSchedWeekChange(){
   const inp=document.getElementById('sched-week');
@@ -2171,7 +2179,7 @@ function copyShareLink(){
 // Read-only public mode when opened via a #schedule share link.
 function enterPublicScheduleMode(){
   const parts=location.hash.replace(/^#/,'').split('/');
-  let wm=nextMonday();
+  let wm=thisMonday();
   if(parts[1]&&/^\d{4}-\d{2}-\d{2}$/.test(parts[1])){ wm=snapToMonday(parts[1])||parts[1]; }
   const lock=document.getElementById('app-lock'); if(lock)lock.style.display='none';
   producerUnlocked=true;
