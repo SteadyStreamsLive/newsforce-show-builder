@@ -1918,12 +1918,15 @@ function buildGlance(){
         if(it.warn){ rows.push('<div class="glance-item g-warn"><span class="glance-text">'+it.label+'</span></div>'); return; }
         let style='';
         if(it.owner){ const c=ownerColor(it.owner); style=' style="border-left-color:'+c+';background:linear-gradient(90deg,'+c+'40,'+c+'0d);"'; }
+        const isPoint=(it.cls==='play');
         const etT=fmt(it.startMin);
+        const etR=isPoint?etT:rangeStr(etT,fmt(it.endMin));
         let timeHtml;
-        if(etZone){ timeHtml=etT+' <span class="glance-tz">(ET)</span>'; }
+        if(etZone){ timeHtml=etR+' <span class="glance-tz">(ET)</span>'; }
         else {
-          const localT=fmtInZone(etToInstant(dt,it.startMin),zone)||etT;
-          timeHtml=localT+' <span class="glance-tz">('+zoneCode(zone)+')</span> <span class="glance-sep">-</span> '+etT+' <span class="glance-tz">(ET)</span>';
+          const lS=fmtInZone(etToInstant(dt,it.startMin),zone)||etT;
+          const lR=isPoint?lS:rangeStr(lS,fmtInZone(etToInstant(dt,it.endMin),zone)||fmt(it.endMin));
+          timeHtml=lR+' <span class="glance-tz">('+zoneCode(zone)+')</span> <span class="glance-sep">\u00B7</span> '+etR+' <span class="glance-tz">(ET)</span>';
         }
         rows.push('<div class="glance-item g-'+it.cls+'" data-s="'+it.startMin+'" data-e="'+it.endMin+'"'+style+'><span class="glance-time">'+timeHtml+'</span><span class="glance-text">'+it.label+'</span></div>');
       });
@@ -1965,6 +1968,13 @@ function etToInstant(dayDate,etMins){
 function fmtInZone(instant,timeZone){
   try{ return new Intl.DateTimeFormat('en-US',{timeZone,hour:'numeric',minute:'2-digit',hour12:true}).format(instant); }
   catch(e){ return null; }
+}
+// "2:00 PM" + "3:00 PM" -> "2:00 – 3:00 PM" (collapses the shared AM/PM).
+function rangeStr(a,b){
+  if(!a||!b)return a||b||'';
+  const am=a.slice(-2), bm=b.slice(-2);
+  if(am===bm && (am==='AM'||am==='PM')) return a.slice(0,-3)+' \u2013 '+b;
+  return a+' \u2013 '+b;
 }
 function zoneShortName(timeZone,ref){
   try{ const parts=new Intl.DateTimeFormat('en-US',{timeZone,timeZoneName:'short'}).formatToParts(ref||new Date()); const z=parts.find(p=>p.type==='timeZoneName'); return z?z.value:timeZone; }
