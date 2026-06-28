@@ -224,6 +224,7 @@
     .glance-head span{color:var(--muted);font-weight:500;}
     .glance-item{display:flex;flex-direction:column;gap:1px;padding:5px 8px;margin-bottom:4px;border-left:3px solid var(--border2);border-radius:3px;background:var(--dark3);}
     .glance-time{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:0.03em;}
+    .glance-et{font-style:normal;font-weight:500;color:var(--border2);margin-left:3px;}
     .glance-text{font-size:12px;color:var(--white);line-height:1.25;}
     .glance-empty{font-size:12px;color:var(--muted);font-style:italic;padding:6px 0;}
     .g-show{border-left-color:#4a9eff;}
@@ -252,6 +253,7 @@
       .glance-head{font-size:8.5px;margin-bottom:3px;padding-bottom:2px;}
       .glance-item{padding:1px 4px;margin-bottom:1px;border-left-width:3px;border-radius:2px;background:#f4f4f4;}
       .glance-time{font-size:6.5px;color:#444;}
+      .glance-et{color:#888;}
       .glance-text{font-size:8px;line-height:1.1;color:#000;}
       .glance-empty{font-size:8px;}
     }
@@ -497,6 +499,20 @@
         <p class="hero-sub" id="glance-range">A read-only view of the whole week.</p>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        <select id="sched-tz" onchange="onSchedZoneChange()" title="Show times in" style="padding:7px 9px;background:var(--dark3);border:1px solid var(--border2);border-radius:4px;color:var(--white);font-family:'Barlow',sans-serif;font-size:13px;cursor:pointer;">
+          <option value="">Auto (your time)</option>
+          <option value="America/New_York">Eastern (studio)</option>
+          <option value="America/Chicago">Central</option>
+          <option value="America/Denver">Mountain</option>
+          <option value="America/Los_Angeles">Pacific</option>
+          <option value="America/Anchorage">Alaska</option>
+          <option value="Pacific/Honolulu">Hawaii</option>
+          <option value="Europe/London">London</option>
+          <option value="Europe/Paris">Central Europe</option>
+          <option value="Asia/Kolkata">India</option>
+          <option value="Asia/Tokyo">Tokyo</option>
+          <option value="Australia/Sydney">Sydney</option>
+        </select>
         <button class="ghost-btn" onclick="schedWeekStep(-1)" title="Previous week" style="padding:7px 11px;">&lsaquo;</button>
         <input type="date" id="sched-week" onchange="onSchedWeekChange()" style="padding:7px 10px;background:var(--dark3);border:1px solid var(--border2);border-radius:4px;color:var(--white);font-family:'Barlow',sans-serif;font-size:13px;">
         <button class="ghost-btn" onclick="schedWeekStep(1)" title="Next week" style="padding:7px 11px;">&rsaquo;</button>
@@ -1786,6 +1802,7 @@ function switchView(view,btn){
   if(view==='glance'){
     const sw=document.getElementById('sched-week');
     if(!sw.value)sw.value=nextMonday();
+    restoreSchedZone();
     loadScheduleView();
   }
 }
@@ -1845,7 +1862,9 @@ function buildGlance(){
   const grid=document.getElementById('glance-grid');
   const range=document.getElementById('glance-range');
   if(!grid)return;
-  if(range)range.textContent='Week of '+(typeof mondayToWeekRange==='function'?mondayToWeekRange(wm):wm);
+  const zone=currentZone();
+  const etZone=(zone==='America/New_York');
+  if(range)range.textContent='Week of '+(typeof mondayToWeekRange==='function'?mondayToWeekRange(wm):wm)+'  \u00B7  times in '+zoneShortName(zone,getDateForDay(wm,0))+(etZone?'':' (ET in gray)');
   // First pass: gather every owner (anchor/show) across the week for the legend + stable coloring.
   const owners=glanceOwners();
   // Legend
@@ -1869,7 +1888,10 @@ function buildGlance(){
         if(it.warn){ rows.push('<div class="glance-item g-warn"><span class="glance-text">'+it.label+'</span></div>'); return; }
         let style='';
         if(it.owner){ const c=ownerColor(it.owner); style=' style="border-left-color:'+c+';background:linear-gradient(90deg,'+c+'40,'+c+'0d);"'; }
-        rows.push('<div class="glance-item g-'+it.cls+'"'+style+'><span class="glance-time">'+fmt(it.startMin)+'</span><span class="glance-text">'+it.label+'</span></div>');
+        const etT=fmt(it.startMin);
+        const localT=(etZone?null:fmtInZone(etToInstant(dt,it.startMin),zone))||etT;
+        const timeHtml=(localT===etT)?etT:(localT+' <em class="glance-et">'+etT+' ET</em>');
+        rows.push('<div class="glance-item g-'+it.cls+'"'+style+'><span class="glance-time">'+timeHtml+'</span><span class="glance-text">'+it.label+'</span></div>');
       });
       body=rows.length?rows.join(''):'<div class="glance-empty">No items</div>';
     }
@@ -1880,9 +1902,46 @@ function buildGlance(){
 
 // Stable pastel color per anchor/show name.
 const GLANCE_PALETTE=['#ff6b6b','#4dabf7','#51cf66','#cc5de8','#ff922b','#22b8cf','#fcc419','#f06595','#94d82d','#5c7cfa','#20c997','#e67700','#d6336c'];
+let _ownerColors={};
 function ownerColor(name){
+  if(_ownerColors[name])return _ownerColors[name];
+  // Fallback (map not built yet): hash so we still return something stable.
   let h=0; for(let i=0;i<name.length;i++){ h=(h*31+name.charCodeAt(i))>>>0; }
   return GLANCE_PALETTE[h%GLANCE_PALETTE.length];
+}
+
+// ---- Timezone display layer (ET is the stored source of truth; we convert per-viewer) ----
+let _schedZone=''; // '' = auto (viewer's local zone)
+function currentZone(){ return _schedZone || (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'America/New_York'; }
+// Offset (ms) of a zone at a given instant — used to turn an ET wall-time into a real UTC instant.
+function tzOffsetMs(timeZone,date){
+  const dtf=new Intl.DateTimeFormat('en-US',{timeZone,hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const p={}; dtf.formatToParts(date).forEach(x=>{p[x.type]=x.value;});
+  let hh=p.hour==='24'?'00':p.hour;
+  return Date.UTC(+p.year,+p.month-1,+p.day,+hh,+p.minute,+p.second)-date.getTime();
+}
+// A calendar date (Date for day i) + ET minutes-past-midnight -> the absolute instant.
+function etToInstant(dayDate,etMins){
+  const guess=Date.UTC(dayDate.getFullYear(),dayDate.getMonth(),dayDate.getDate(),Math.floor(etMins/60),etMins%60,0);
+  return new Date(guess-tzOffsetMs('America/New_York',new Date(guess)));
+}
+function fmtInZone(instant,timeZone){
+  try{ return new Intl.DateTimeFormat('en-US',{timeZone,hour:'numeric',minute:'2-digit',hour12:true}).format(instant); }
+  catch(e){ return null; }
+}
+function zoneShortName(timeZone,ref){
+  try{ const parts=new Intl.DateTimeFormat('en-US',{timeZone,timeZoneName:'short'}).formatToParts(ref||new Date()); const z=parts.find(p=>p.type==='timeZoneName'); return z?z.value:timeZone; }
+  catch(e){ return timeZone; }
+}
+function onSchedZoneChange(){
+  const sel=document.getElementById('sched-tz');
+  _schedZone=sel?sel.value:'';
+  try{ localStorage.setItem('nf_sched_tz',_schedZone); }catch(e){}
+  buildGlance();
+}
+function restoreSchedZone(){
+  try{ const v=localStorage.getItem('nf_sched_tz'); if(v!==null)_schedZone=v; }catch(e){}
+  const sel=document.getElementById('sched-tz'); if(sel)sel.value=_schedZone;
 }
 function schedWeekStep(d){
   const cur=getSchedWeek();
@@ -1933,6 +1992,9 @@ function glanceOwners(){
     text.split('\n').forEach(line=>{ const it=glanceLineInfo(line); if(it&&it.owner&&owners.indexOf(it.owner)<0)owners.push(it.owner); });
   });
   owners.sort((a,b)=>a.localeCompare(b));
+  // Assign each owner a distinct color by position (no name-hash collisions).
+  _ownerColors={};
+  owners.forEach((o,i)=>{ _ownerColors[o]=GLANCE_PALETTE[i%GLANCE_PALETTE.length]; });
   return owners;
 }
 function escHTML(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -2005,6 +2067,7 @@ function enterPublicScheduleMode(){
   const sv=document.getElementById('view-glance'); if(sv)sv.classList.add('active');
   const sb=document.getElementById('sched-share-btn'); if(sb)sb.style.display='none';
   const sw=document.getElementById('sched-week'); if(sw)sw.value=wm;
+  restoreSchedZone();
   loadScheduleView();
 }
 
