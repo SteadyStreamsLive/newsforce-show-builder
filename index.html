@@ -223,8 +223,16 @@
     .glance-head{font-family:'Barlow',sans-serif;font-weight:700;font-size:13px;color:var(--accent);letter-spacing:0.05em;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:6px;}
     .glance-head span{color:var(--muted);font-weight:500;}
     .glance-item{display:flex;flex-direction:column;gap:1px;padding:5px 8px;margin-bottom:4px;border-left:3px solid var(--border2);border-radius:3px;background:var(--dark3);}
-    .glance-time{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:0.03em;}
-    .glance-et{font-style:normal;font-weight:500;color:var(--border2);margin-left:3px;}
+    .glance-time{font-size:10px;font-weight:700;color:#e7eaef;letter-spacing:0.02em;}
+    .glance-tz{font-weight:600;color:var(--muted);}
+    .glance-sep{color:var(--muted);}
+    .world-clocks{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 14px;}
+    .wc{background:var(--dark2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;min-width:92px;}
+    .wc-loc{font-family:'Barlow',sans-serif;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;white-space:nowrap;}
+    .wc-time{font-family:'Barlow Condensed','Barlow',sans-serif;font-size:21px;font-weight:700;color:var(--white);line-height:1.15;}
+    .wc-code{font-size:9px;font-weight:600;color:var(--muted);letter-spacing:0.04em;}
+    body.glance-active .container{max-width:1400px;}
+    @media(max-width:620px){.glance-grid{grid-template-columns:1fr;}.wc{flex:1 1 auto;min-width:0;}}
     .glance-text{font-size:12px;color:var(--white);line-height:1.25;}
     .glance-empty{font-size:12px;color:var(--muted);font-style:italic;padding:6px 0;}
     .g-show{border-left-color:#4a9eff;}
@@ -243,6 +251,7 @@
       #view-glance .hero-strip{margin:0 0 4px;}
       #view-glance .hero-strip>div:last-child{display:none!important;}
       #ics-picker{display:none!important;}
+      #world-clocks{display:none!important;}
       .hero-title{font-size:15px!important;margin:0!important;}
       .hero-sub{font-size:9px!important;margin:1px 0 0!important;}
       .glance-legend{gap:3px;margin:5px 0 7px;}
@@ -252,8 +261,8 @@
       .glance-day{background:#fff;border:1px solid #bbb;border-radius:3px;padding:4px;break-inside:avoid;}
       .glance-head{font-size:8.5px;margin-bottom:3px;padding-bottom:2px;}
       .glance-item{padding:1px 4px;margin-bottom:1px;border-left-width:3px;border-radius:2px;background:#f4f4f4;}
-      .glance-time{font-size:6.5px;color:#444;}
-      .glance-et{color:#888;}
+      .glance-time{font-size:6.5px;color:#222;}
+      .glance-tz,.glance-sep{color:#888;}
       .glance-text{font-size:8px;line-height:1.1;color:#000;}
       .glance-empty{font-size:8px;}
     }
@@ -534,6 +543,7 @@
         <button class="accent-btn" id="sched-share-btn" onclick="copyShareLink()">Copy share link</button>
       </div>
     </div>
+    <div id="world-clocks" class="world-clocks"></div>
     <div id="ics-picker" class="ics-picker" style="display:none;"></div>
     <div id="glance-legend" class="glance-legend"></div>
     <div id="glance-grid" class="glance-grid"></div>
@@ -1802,6 +1812,7 @@ function switchView(view,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('view-'+view).classList.add('active');
   btn.classList.add('active');
+  document.body.classList.toggle('glance-active',view==='glance');
   if(view==='producer'){
     const ws=document.getElementById('week-start');
     if(!ws.value)ws.value=nextMonday();
@@ -1875,7 +1886,7 @@ function buildGlance(){
   if(!grid)return;
   const zone=currentZone();
   const etZone=(zone==='America/New_York');
-  if(range)range.textContent='Week of '+(typeof mondayToWeekRange==='function'?mondayToWeekRange(wm):wm)+'  \u00B7  times in '+zoneShortName(zone,getDateForDay(wm,0))+(etZone?'':' (ET in gray)');
+  if(range)range.textContent='Week of '+(typeof mondayToWeekRange==='function'?mondayToWeekRange(wm):wm)+'  \u00B7  times in '+zoneCode(zone)+(etZone?'':' + ET');
   // First pass: gather every owner (anchor/show) across the week for the legend + stable coloring.
   const owners=glanceOwners();
   // Legend
@@ -1900,8 +1911,12 @@ function buildGlance(){
         let style='';
         if(it.owner){ const c=ownerColor(it.owner); style=' style="border-left-color:'+c+';background:linear-gradient(90deg,'+c+'40,'+c+'0d);"'; }
         const etT=fmt(it.startMin);
-        const localT=(etZone?null:fmtInZone(etToInstant(dt,it.startMin),zone))||etT;
-        const timeHtml=(localT===etT)?etT:(localT+' <em class="glance-et">'+etT+' ET</em>');
+        let timeHtml;
+        if(etZone){ timeHtml=etT+' <span class="glance-tz">(ET)</span>'; }
+        else {
+          const localT=fmtInZone(etToInstant(dt,it.startMin),zone)||etT;
+          timeHtml=localT+' <span class="glance-tz">('+zoneCode(zone)+')</span> <span class="glance-sep">-</span> '+etT+' <span class="glance-tz">(ET)</span>';
+        }
         rows.push('<div class="glance-item g-'+it.cls+'"'+style+'><span class="glance-time">'+timeHtml+'</span><span class="glance-text">'+it.label+'</span></div>');
       });
       body=rows.length?rows.join(''):'<div class="glance-empty">No items</div>';
@@ -1909,6 +1924,7 @@ function buildGlance(){
     html+='<div class="glance-day"><div class="glance-head">'+day.slice(0,3).toUpperCase()+' <span>'+ds+'</span></div>'+body+'</div>';
   });
   grid.innerHTML=html;
+  renderWorldClocks();
 }
 
 // Stable pastel color per anchor/show name.
@@ -1954,6 +1970,33 @@ function restoreSchedZone(){
   try{ const v=localStorage.getItem('nf_sched_tz'); if(v!==null)_schedZone=v; }catch(e){}
   const sel=document.getElementById('sched-tz'); if(sel)sel.value=_schedZone;
 }
+
+// Clean, well-known codes for the zones we offer (the live Intl name is the fallback).
+const ZONE_CODE={'America/New_York':'ET','America/Chicago':'CT','America/Denver':'MT','America/Phoenix':'MST','America/Los_Angeles':'PT','America/Anchorage':'AKT','Pacific/Honolulu':'HST','America/Halifax':'AT','America/Sao_Paulo':'BRT','UTC':'UTC','Europe/London':'GMT','Europe/Paris':'CET','Europe/Brussels':'CET','Europe/Athens':'EET','Europe/Moscow':'MSK','Asia/Dubai':'GST','Asia/Kolkata':'IST','Asia/Bangkok':'ICT','Asia/Shanghai':'CST','Asia/Singapore':'SGT','Asia/Tokyo':'JST','Australia/Sydney':'AEST','Pacific/Auckland':'NZT'};
+function zoneCode(tz){ return ZONE_CODE[tz] || zoneShortName(tz); }
+
+// Live world clocks for our team locations.
+const WORLD_CLOCKS=[
+  {label:'North Carolina', tz:'America/New_York'},
+  {label:'Denver', tz:'America/Denver'},
+  {label:'California / Seattle', tz:'America/Los_Angeles'},
+  {label:'London', tz:'Europe/London'},
+  {label:'Brussels', tz:'Europe/Brussels'}
+];
+function renderWorldClocks(){
+  const box=document.getElementById('world-clocks'); if(!box)return;
+  box.innerHTML=WORLD_CLOCKS.map((c,i)=>'<div class="wc"><div class="wc-loc">'+c.label+'</div><div class="wc-time" id="wc-time-'+i+'">&middot;&middot;</div><div class="wc-code">'+zoneCode(c.tz)+'</div></div>').join('');
+  updateWorldClocks();
+}
+function updateWorldClocks(){
+  const box=document.getElementById('world-clocks'); if(!box||!box.offsetParent)return;
+  const now=new Date();
+  WORLD_CLOCKS.forEach((c,i)=>{
+    const el=document.getElementById('wc-time-'+i); if(!el)return;
+    try{ el.textContent=new Intl.DateTimeFormat('en-US',{timeZone:c.tz,hour:'numeric',minute:'2-digit',hour12:true}).format(now); }catch(e){}
+  });
+}
+setInterval(updateWorldClocks,1000);
 function schedWeekStep(d){
   const cur=getSchedWeek();
   const dt=new Date(cur+'T12:00:00'); dt.setDate(dt.getDate()+d*7);
@@ -2076,6 +2119,7 @@ function enterPublicScheduleMode(){
   document.querySelectorAll('.nav-btn').forEach(b=>b.style.display='none');
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   const sv=document.getElementById('view-glance'); if(sv)sv.classList.add('active');
+  document.body.classList.add('glance-active');
   const sb=document.getElementById('sched-share-btn'); if(sb)sb.style.display='none';
   const sw=document.getElementById('sched-week'); if(sw)sw.value=wm;
   restoreSchedZone();
