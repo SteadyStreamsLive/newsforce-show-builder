@@ -520,9 +520,9 @@
           <option value="America/Halifax">AST &middot; Atlantic</option>
           <option value="America/Sao_Paulo">BRT &middot; Brazil</option>
           <option value="UTC">UTC</option>
-          <option value="Europe/London">GMT &middot; London</option>
-          <option value="Europe/Paris">CET &middot; Central Europe</option>
-          <option value="Europe/Athens">EET &middot; Eastern Europe</option>
+          <option value="Europe/London">GMT/BST &middot; London</option>
+          <option value="Europe/Paris">CET/CEST &middot; Central Europe</option>
+          <option value="Europe/Athens">EET/EEST &middot; Eastern Europe</option>
           <option value="Europe/Moscow">MSK &middot; Moscow</option>
           <option value="Asia/Dubai">GST &middot; Gulf</option>
           <option value="Asia/Kolkata">IST &middot; India</option>
@@ -1973,7 +1973,15 @@ function restoreSchedZone(){
 
 // Clean, well-known codes for the zones we offer (the live Intl name is the fallback).
 const ZONE_CODE={'America/New_York':'ET','America/Chicago':'CT','America/Denver':'MT','America/Phoenix':'MST','America/Los_Angeles':'PT','America/Anchorage':'AKT','Pacific/Honolulu':'HST','America/Halifax':'AT','America/Sao_Paulo':'BRT','UTC':'UTC','Europe/London':'GMT','Europe/Paris':'CET','Europe/Brussels':'CET','Europe/Athens':'EET','Europe/Moscow':'MSK','Asia/Dubai':'GST','Asia/Kolkata':'IST','Asia/Bangkok':'ICT','Asia/Shanghai':'CST','Asia/Singapore':'SGT','Asia/Tokyo':'JST','Australia/Sydney':'AEST','Pacific/Auckland':'NZT'};
-function zoneCode(tz){ return ZONE_CODE[tz] || zoneShortName(tz); }
+// Zones that switch codes with daylight saving — [standard, summer]. We pick the one in effect.
+const DST_CODE={'Europe/London':['GMT','BST'],'Europe/Brussels':['CET','CEST'],'Europe/Paris':['CET','CEST'],'Europe/Athens':['EET','EEST']};
+function liveCode(tz){
+  const m=DST_CODE[tz]; if(!m)return null;
+  const now=new Date();
+  const dstOn=tzOffsetMs(tz,now)>tzOffsetMs(tz,new Date(now.getFullYear(),0,1));
+  return dstOn?m[1]:m[0];
+}
+function zoneCode(tz){ return liveCode(tz) || ZONE_CODE[tz] || zoneShortName(tz); }
 
 // Live world clocks for our team locations.
 const WORLD_CLOCKS=[
