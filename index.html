@@ -230,15 +230,24 @@
     .g-warn{border-left-color:#ff5c5c;background:rgba(255,92,92,0.12);}
     .g-warn .glance-text{color:#ff9f9f;}
     @media print{
+      @page{ size: landscape; margin: 0.3in; }
       body *{visibility:hidden;}
       #view-glance,#view-glance *{visibility:visible;}
-      #view-glance{position:absolute;left:0;top:0;width:100%;background:#fff;color:#000;}
-      #view-glance .hero-strip button{display:none;}
-      .glance-day{background:#fff;border:1px solid #999;break-inside:avoid;}
-      .glance-item{background:#f4f4f4;}
-      .glance-text,.glance-head{color:#000;}
-      .glance-time{color:#555;}
-      .leg-chip{color:#000;border-color:#999;}
+      #view-glance{position:absolute;left:0;top:0;width:100%;background:#fff;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      #view-glance .hero-strip{margin:0 0 4px;}
+      #view-glance .hero-strip>div:last-child{display:none!important;}
+      .hero-title{font-size:15px!important;margin:0!important;}
+      .hero-sub{font-size:9px!important;margin:1px 0 0!important;}
+      .glance-legend{gap:3px;margin:5px 0 7px;}
+      .leg-chip{font-size:7.5px;padding:1px 5px;color:#000;}
+      .leg-chip i{width:7px;height:7px;}
+      .glance-grid{display:grid!important;grid-template-columns:repeat(7,1fr)!important;gap:3px;}
+      .glance-day{background:#fff;border:1px solid #bbb;border-radius:3px;padding:4px;break-inside:avoid;}
+      .glance-head{font-size:8.5px;margin-bottom:3px;padding-bottom:2px;}
+      .glance-item{padding:1px 4px;margin-bottom:1px;border-left-width:3px;border-radius:2px;background:#f4f4f4;}
+      .glance-time{font-size:6.5px;color:#444;}
+      .glance-text{font-size:8px;line-height:1.1;color:#000;}
+      .glance-empty{font-size:8px;}
     }
     .show-week-row{display:flex;align-items:center;gap:10px;background:var(--dark2);border:1px solid var(--border);border-radius:4px;padding:8px 12px;margin-bottom:6px;flex-wrap:wrap;}
     .show-week-name{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--accent);min-width:120px;}
