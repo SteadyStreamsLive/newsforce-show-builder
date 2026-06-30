@@ -176,6 +176,8 @@
     .reorder-btn:disabled{opacity:0;}
     .day-anchor-row{cursor:grab;transition:opacity 0.15s;}
     .day-anchor-row.dragging{opacity:0.4;cursor:grabbing;}
+    .day-anchor-row.anchor-off{opacity:0.45;}
+    .day-anchor-row.anchor-off:hover{opacity:0.7;}
     .day-anchor-row.drag-over{border-top:2px solid var(--accent);}
     .drag-handle{color:var(--muted);font-size:14px;cursor:grab;padding:0 4px;flex-shrink:0;user-select:none;}
     .drag-handle:hover{color:var(--accent);}
@@ -908,6 +910,19 @@ function setDayRead(anchorName,day,type,btn){
   saveGlobalSettings();
   const p=document.getElementById('panel-'+day);if(p)p.innerHTML=buildDayPanel(day);
 }
+// Clear all per-day overrides for one day (Off / LIVE / Half / +Add / custom order) back to defaults.
+// Does NOT touch submissions, shows, or the whole-day "Mark Off".
+function resetDay(day){
+  if(!confirm('Reset '+day+'? This clears Off / LIVE / Half / +Add choices and any custom ordering for this day, putting every available anchor back to a default Full read. Submissions and shows are not affected.'))return;
+  if(dayExclusions[day])dayExclusions[day].clear();
+  if(liveAnchors[day])liveAnchors[day].clear();
+  delete dayOrders[day];
+  Object.keys(readTypes).forEach(n=>{ if(readTypes[n]&&typeof readTypes[n]==='object')delete readTypes[n][day]; });
+  Object.keys(additionalReads).forEach(n=>{ if(additionalReads[n])delete additionalReads[n][day]; });
+  saveGlobalSettings();
+  const p=document.getElementById('panel-'+day);if(p)p.innerHTML=buildDayPanel(day);
+  toast(day+' reset to defaults.');
+}
 function toggleLive(anchorName,day,btn){
   if(!liveAnchors[day])liveAnchors[day]=new Set();
   if(liveAnchors[day].has(anchorName)){
@@ -1125,14 +1140,15 @@ function buildDayPanel(day){
     </div>`;
   }).join('');
 
-  const avail=day==='Saturday'?[]:getOrderedAvail(day).filter(a=>!isExcluded(a.name,day));
+  // Keep "Off" anchors visible (dimmed) so marking Off is reversible in place — click Full/Half to bring them back.
+  const avail=day==='Saturday'?[]:getOrderedAvail(day);
   const anchorRowsHTML=avail.map(a=>{
     const rt=getDayRead(a.name,day);
     const isLive=isAnchorLive(a.name,day);
     const addR=additionalReads[a.name]?.[day]||'0';
     const safeId=a.name.replace(/\s/g,'_');
     const detailHTML=buildDetailHTML(a);
-    return `<div class="day-anchor-row" draggable="true"
+    return `<div class="day-anchor-row${rt==='off'?' anchor-off':''}" draggable="true"
       ondragstart="onDragStart(event,'${day}','${a.name}')"
       ondragend="onDragEnd(event)"
       ondragover="onDragOver(event,'${day}','${a.name}')"
@@ -1164,6 +1180,7 @@ function buildDayPanel(day){
       </div>
       <div class="day-panel-actions">
         <button class="ghost-btn" onclick="toggleDayOff2('${day}')" style="${isOff?'border-color:var(--red);color:var(--red);':''}">${isOff?'Day Off':'Mark Off'}</button>
+        <button class="ghost-btn" onclick="resetDay('${day}')">Reset</button>
         <button class="ghost-btn" onclick="saveDay('${day}')">Save Day</button>
         <button class="ghost-btn" onclick="generateDay('${day}')">Generate</button>
         <button class="accent-btn" onclick="pushDay('${day}')">Push to Calendar</button>
