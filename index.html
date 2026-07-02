@@ -1946,12 +1946,12 @@ function glanceLineInfo(line){
   let startMin=toMin(times[0]);
   let endMin=times.length>1?toMin(times[times.length-1]):startMin+30;
   let label,cls='other',owner=null;
-  if(line.startsWith('[SHOW]')){ const nm=line.replace('[SHOW]','').split(':')[0].trim(); label=nm; cls='show'; owner=nm; const a=line.match(/Anchors:\s*([^|]+?)(?:\s*\||\s*$)/); if(a)label+=' \u00B7 '+a[1].trim(); }
+  if(line.startsWith('[SHOW]')){ const nm=line.replace('[SHOW]','').split(':')[0].trim(); label='[SHOW] '+nm; cls='show'; owner=nm; const a=line.match(/Anchors:\s*([^|]+?)(?:\s*\||\s*$)/); if(a)label+=' \u00B7 '+a[1].trim(); }
   else if(/^Ops Break/i.test(line)){ label='Ops Break'; cls='break'; }
   else if(/Daily SOT/i.test(line)){ label='Ops Prep / SOT Check'; cls='prep'; }
   else if(/^Playback/i.test(line)){ label='Playback'; cls='play'; endMin=startMin+15; }
-  else if(/\|\s*Ops Prep:/i.test(line)){ const nm=line.split('|')[0].trim(); label=nm+' \u2014 ops prep'; cls='prep'; owner=nm; }
-  else if(/\|\s*Tech Check:/i.test(line)){ const nm=line.split('|')[0].trim(); label=nm+' \u2014 tech check'; cls='prep'; owner=nm; }
+  else if(/\|\s*Ops Prep:/i.test(line)){ const nm=line.split('|')[0].trim(); label='Technical Prep'; cls='prep'; owner=nm; }
+  else if(/\|\s*Tech Check:/i.test(line)){ const nm=line.split('|')[0].trim(); label='Host/Guest Tech Check'; cls='prep'; owner=nm; }
   else if(/\|\s*Live to Tape/i.test(line)){ const nm=line.split('|')[0].trim(); label=nm; cls='read'; owner=nm; }
   else if(/\|\s*LIVE/i.test(line)){ const nm=line.split('|')[0].trim(); label=nm+' \u2014 LIVE'; cls='live'; owner=nm; }
   else { label=line.split(/\d{1,2}:\d{2}/)[0].replace(/[-:|]\s*$/,'').trim()||'(item)'; }
