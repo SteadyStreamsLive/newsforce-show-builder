@@ -1952,7 +1952,7 @@ function glanceLineInfo(line){
   else if(/^Playback/i.test(line)){ label='Playback'; cls='play'; endMin=startMin+15; }
   else if(/\|\s*Ops Prep:/i.test(line)){ const nm=line.split('|')[0].trim(); label='Technical Prep \u2014 '+nm; cls='prep'; owner=nm; }
   else if(/\|\s*Tech Check:/i.test(line)){ const nm=line.split('|')[0].trim(); label='Host/Guest Tech Check \u2014 '+nm; cls='prep'; owner=nm; }
-  else if(/\|\s*Live to Tape/i.test(line)){ const nm=line.split('|')[0].trim(); label=nm; cls='read'; owner=nm; }
+  else if(/\|\s*Live to Tape/i.test(line)){ const nm=line.split('|')[0].trim(); label=nm+' \u2014 Anchor Read'; cls='read'; owner=nm; }
   else if(/\|\s*LIVE/i.test(line)){ const nm=line.split('|')[0].trim(); label=nm+' \u2014 LIVE'; cls='live'; owner=nm; }
   else { label=line.split(/\d{1,2}:\d{2}/)[0].replace(/[-:|]\s*$/,'').trim()||'(item)'; }
   if(endMin<=startMin)endMin=startMin+15;
