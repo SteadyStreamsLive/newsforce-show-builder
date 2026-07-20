@@ -460,6 +460,12 @@
           <option value="60">1 hour</option>
         </select>
       </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-size:12px;color:var(--muted);font-weight:500;display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" id="dev-fill" checked style="accent-color:var(--accent);" onchange="devFill=this.checked;saveGlobalSettings();" /> Fill gaps with
+        </label>
+        <input type="text" id="dev-label" value="Steady Streams Dev" title="Name for the block used to fill big empty gaps" onblur="devLabel=this.value.trim()||'Dev time';saveGlobalSettings();" style="padding:6px 10px;font-size:13px;font-family:'Barlow',sans-serif;background:var(--dark2);border:1px solid var(--border2);border-radius:4px;color:var(--white);outline:none;width:160px;" />
+      </div>
     </div>
     <div class="section-label">Anchor Roster</div>
     <div class="roster-chips" id="roster-chips"></div>
@@ -604,9 +610,10 @@ const TZ_OFF={ET:0,CT:1,MT:2,PT:3,GMT:-5,CET:-6,IST:-10.5,AEST:-16};
 // Change these two values to retime the breaks. On show days a break slides just past any show it lands on.
 const OPS_BREAK_TIMES=[13*60+30, 16*60]; // 1:30 PM and 4:00 PM ET
 const BREAK_MIN_GAP=90; // minimum minutes between the two breaks (prevents stacking on show days)
+const DEV_MIN_GAP=45; // fill any empty stretch >= this many minutes with a Dev block (adjust to taste)
 let submissions=[],blockCounts={},roster=[],offDays=[],readTypes={},dayOrders={},dayExclusions={},liveAnchors={},dayScheduleStart={},liveStartTime='17:00',producerUnlocked=false;
 // --- State that was missing from this file (restored) ---
-let weekData={},weekShows={},additionalReads={},dayShift={},anchorStart={},showsCatalog=[],liveShowPrepTime=30,currentDay='Monday';
+let weekData={},weekShows={},additionalReads={},dayShift={},anchorStart={},showsCatalog=[],liveShowPrepTime=30,currentDay='Monday',devFill=true,devLabel='Steady Streams Dev';
 
 let _toastTimer;
 function toast(msg,ms=2500){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(_toastTimer);_toastTimer=setTimeout(()=>el.classList.remove('show'),ms);}
@@ -792,6 +799,10 @@ async function loadWeek() {
   if(gs.additionalReads) Object.assign(additionalReads,gs.additionalReads);
   if(gs.dayShift) Object.assign(dayShift,gs.dayShift);
   if(gs.anchorStart) Object.assign(anchorStart,gs.anchorStart);
+  if(gs.devFill!==undefined)devFill=gs.devFill;
+  if(gs.devLabel)devLabel=gs.devLabel;
+  const dfc=document.getElementById('dev-fill');if(dfc)dfc.checked=devFill;
+  const dfl=document.getElementById('dev-label');if(dfl)dfl.value=devLabel;
   if(gs.liveAnchors) Object.entries(gs.liveAnchors).forEach(([k,v])=>{liveAnchors[k]=new Set(v);});
   if(gs.dayOrders) Object.assign(dayOrders,gs.dayOrders);
   if(gs.dayExclusions) Object.entries(gs.dayExclusions).forEach(([k,v])=>{dayExclusions[k]=new Set(v);});
@@ -810,6 +821,7 @@ async function saveGlobalSettings(){
     additionalReads,
     dayShift,
     anchorStart,
+    devFill,devLabel,
     liveAnchors:Object.fromEntries(Object.entries(liveAnchors).map(([k,v])=>[k,[...v]])),
     dayOrders,
     dayExclusions:Object.fromEntries(Object.entries(dayExclusions).map(([k,v])=>[k,[...v]]))
@@ -1855,6 +1867,23 @@ function generateDay(day,rebuildTabs=true){
       recA(an,'SHOW \u2014 '+show.name+': '+fmt(show.startMins)+' - '+fmt(show.endMins)+' ET ('+fmtPT(show.startMins)+' - '+fmtPT(show.endMins)+' PT)'+techNote);
     });
   });
+
+  // Fill any big empty stretches (between ops prep and the go-live / playback) with a named Dev block.
+  if(devFill){
+    const liveBase=(()=>{const[h,m]=liveStartTime.split(':').map(Number);return h*60+m;})();
+    const fillEnd=liveAvailAnchors.length?(liveBase-liveShowPrepTime):liveBase;
+    const busy=occupied().map(b=>({start:Math.max(b.start,OPS_END),end:Math.min(b.end,fillEnd)}))
+      .filter(b=>b.end>b.start).sort((a,b)=>a.start-b.start);
+    const merged=[];
+    busy.forEach(b=>{const last=merged[merged.length-1];if(last&&b.start<=last.end)last.end=Math.max(last.end,b.end);else merged.push({start:b.start,end:b.end});});
+    let cursor=OPS_END;const devSpans=[];
+    merged.forEach(b=>{if(b.start-cursor>=DEV_MIN_GAP)devSpans.push({start:cursor,end:b.start});cursor=Math.max(cursor,b.end);});
+    if(fillEnd-cursor>=DEV_MIN_GAP)devSpans.push({start:cursor,end:fillEnd});
+    devSpans.forEach(g=>{
+      dayEvents.push({type:'dev',startMins:g.start,endMins:g.end,label:devLabel+' '+fmt(g.start)+' - '+fmt(g.end)+' ET ('+fmtPT(g.start)+' - '+fmtPT(g.end)+' PT)'});
+      calEvents.push({title:devLabel,start:toISO(g.start),end:toISO(g.end),description:devLabel,color:'sage'});
+    });
+  }
 
   dayEvents.sort((a,b)=>a.startMins-b.startMins);
   dayEvents.forEach(ev=>{out+='\n'+ev.label+'\n';});
