@@ -167,6 +167,8 @@
     .add-read-select.active{border-color:var(--accent);color:var(--accent);}
     .add-read-select option{background:var(--dark2);color:var(--white);}
     .pin-time{padding:1px 4px;border-radius:3px;border:1px solid var(--border2);background:var(--dark2);font-size:10px;color:var(--muted);font-family:'Barlow',sans-serif;outline:none;color-scheme:dark;height:22px;}
+    .pin-label{font-size:9px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted);margin-left:4px;white-space:nowrap;}
+    .pin-label.active{color:var(--accent);}
     .pin-time:focus{border-color:var(--accent);}
     .pin-time.active{border-color:var(--accent);color:var(--accent);}
     .pin-clear{background:none;border:1px solid var(--border2);border-radius:50%;width:16px;height:16px;font-size:11px;line-height:1;color:var(--muted);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -1188,6 +1190,7 @@ function buildDayPanel(day){
           <option value="30" ${shf===30?'selected':''}>+30m</option>
           <option value="45" ${shf===45?'selected':''}>+45m</option>
         </select>
+        <span class="pin-label ${pin?'active':''}" title="Set an exact ET start time for this anchor's read (leave blank to auto-place). Overrides Shift.">Custom time</span>
         <input type="time" class="pin-time ${pin?'active':''}" value="${pin}" step="900" title="Pin this read to an exact start time in ET (leave blank to auto-place). This overrides Shift." onchange="setAnchorStart('${a.name}','${day}',this.value)" />
         ${pin?`<button class="pin-clear" title="Unpin (back to auto)" onclick="setAnchorStart('${a.name}','${day}','')">&times;</button>`:''}
       </div>
