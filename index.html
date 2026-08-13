@@ -169,6 +169,24 @@
     .pin-time{padding:1px 4px;border-radius:3px;border:1px solid var(--border2);background:var(--dark2);font-size:10px;color:var(--muted);font-family:'Barlow',sans-serif;outline:none;color-scheme:dark;height:22px;}
     .pin-label{font-size:9px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted);margin-left:4px;white-space:nowrap;}
     .pin-label.active{color:var(--accent);}
+    .guide-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:500;display:flex;align-items:flex-start;justify-content:center;padding:4vh 16px;overflow-y:auto;}
+    .guide-box{background:var(--dark);border:1px solid var(--border2);border-radius:12px;width:100%;max-width:720px;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,0.5);}
+    .guide-head{position:sticky;top:0;background:var(--dark);display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.4rem;border-bottom:1px solid var(--border);border-radius:12px 12px 0 0;}
+    .guide-title{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:var(--white);}
+    .guide-close{background:none;border:none;color:var(--muted);font-size:26px;line-height:1;cursor:pointer;padding:0 4px;}
+    .guide-close:hover{color:var(--white);}
+    .guide-body{padding:0.6rem 1.4rem 1.6rem;}
+    .g-sec{padding:1rem 0;border-bottom:1px solid var(--border);}
+    .g-sec:last-child{border-bottom:none;}
+    .g-h{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+    .guide-body p{font-size:13.5px;line-height:1.6;color:var(--off-white);margin-bottom:8px;}
+    .guide-body ul,.guide-body ol{margin:0 0 4px 1.1rem;}
+    .guide-body li{font-size:13.5px;line-height:1.6;color:var(--off-white);margin-bottom:5px;}
+    .guide-body b{color:var(--white);font-weight:600;}
+    .g-code{display:inline-block;background:var(--dark3);border:1px solid var(--border2);border-radius:4px;padding:1px 8px;font-family:'Courier New',monospace;font-size:13px;color:var(--accent);font-weight:700;letter-spacing:0.03em;}
+    .g-note{background:rgba(200,240,0,0.06);border-left:3px solid var(--accent);padding:8px 12px;border-radius:0 4px 4px 0;color:var(--muted)!important;font-size:12.5px!important;}
+    .g-flow{background:var(--dark2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-weight:600;color:var(--white)!important;}
+    @media(max-width:520px){.guide-title{font-size:16px;}.guide-body{padding:0.5rem 1rem 1.2rem;}}
     .pin-time:focus{border-color:var(--accent);}
     .pin-time.active{border-color:var(--accent);color:var(--accent);}
     .pin-clear{background:none;border:1px solid var(--border2);border-radius:50%;width:16px;height:16px;font-size:11px;line-height:1;color:var(--muted);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -435,7 +453,10 @@
         <h1>Producer View</h1>
         <p>Review submissions and generate the weekly schedule.</p>
       </div>
-      <button class="accent-btn" onclick="generateSchedule()">Generate Week</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="ghost-btn" onclick="openGuide()" title="How to build the schedule">&#63; Guide</button>
+        <button class="accent-btn" onclick="generateSchedule()">Generate Week</button>
+      </div>
     </div>
     <div class="week-row" style="margin-bottom:1rem;">
       <label>Week of</label>
@@ -589,6 +610,107 @@
   </div>
 <div class="toast" id="toast"></div>
 
+<!-- PRODUCER GUIDE -->
+<div id="guide-overlay" class="guide-overlay" style="display:none;" onclick="if(event.target===this)closeGuide()">
+  <div class="guide-box">
+    <div class="guide-head">
+      <div class="guide-title">Producer Guide &mdash; Building the Schedule</div>
+      <button class="guide-close" onclick="closeGuide()">&times;</button>
+    </div>
+    <div class="guide-body">
+
+      <div class="g-sec">
+        <div class="g-h">1 &middot; Getting in (passwords)</div>
+        <p>There are two passwords:</p>
+        <ul>
+          <li><b>App password</b> <span class="g-code">NF2026!</span> &mdash; unlocks the whole app. Everyone (talent + producers) needs this on the first screen.</li>
+          <li><b>Producer password</b> <span class="g-code">0000</span> &mdash; unlocks the <b>Producer</b>, <b>Shows</b>, and <b>Schedule View</b> tabs. Talent never needs this.</li>
+        </ul>
+        <p class="g-note">Keep the producer password with ops only. The public share link (see section 8) needs no password at all.</p>
+      </div>
+
+      <div class="g-sec">
+        <div class="g-h">2 &middot; The four tabs</div>
+        <ul>
+          <li><b>Talent View</b> &mdash; the form anchors use to submit next week's availability. No producer password needed.</li>
+          <li><b>Schedule View</b> &mdash; the read-only, shareable week (timezones, world clocks, print, per-person calendars).</li>
+          <li><b>Shows</b> &mdash; your permanent show catalog (set once, reused every week).</li>
+          <li><b>Producer</b> &mdash; where you build and push the schedule. Most of your work is here.</li>
+        </ul>
+      </div>
+
+      <div class="g-sec">
+        <div class="g-h">3 &middot; Set up the week</div>
+        <ol>
+          <li><b>Week of</b> &mdash; pick any date; it snaps to that week's Monday.</li>
+          <li>Click <b>Refresh</b> to pull in that week's submissions.</li>
+          <li>Check the <b>Anchor Roster</b> &mdash; anyone who hasn't submitted shows up under "Has not submitted yet." Add/remove names as needed.</li>
+          <li>Set <b>Go live time</b> and <b>Live prep</b> (used for LIVE broadcasts and playback).</li>
+          <li><b>Fill gaps with</b> &mdash; when on, any empty stretch of 45+ minutes is filled with a named block (default "Steady Streams Dev"). Rename it or uncheck to turn off.</li>
+        </ol>
+      </div>
+
+      <div class="g-sec">
+        <div class="g-h">4 &middot; Build each day</div>
+        <p>Use the <b>day tabs</b> (Mon&hellip;Sun). For each day:</p>
+        <ul>
+          <li><b>Mark Off</b> &mdash; the whole day is a day off.</li>
+          <li><b>Schedule start</b> &mdash; when the day's ops prep begins (default 11:00 AM ET).</li>
+          <li><b>Shows this day</b> &mdash; tick a show, set its start/end, assign on-air anchors + guests. (Manage the catalog on the Shows tab.)</li>
+          <li><b>Reset</b> &mdash; clears all per-day choices (Off / LIVE / Half / +Add / Shift / Custom Time / custom order) back to defaults for that day.</li>
+        </ul>
+      </div>
+
+      <div class="g-sec">
+        <div class="g-h">5 &middot; Per-anchor controls</div>
+        <p>Each anchor row (left to right):</p>
+        <ul>
+          <li><b>&#8597; drag handle</b> &mdash; drag to reorder who reads first.</li>
+          <li><b>Name</b> &mdash; click to expand their submitted availability.</li>
+          <li><b>Full 1hr / Half 30m</b> &mdash; read length.</li>
+          <li><b>Off</b> &mdash; skip this anchor today (row dims; click Full/Half to bring back).</li>
+          <li><b>LIVE</b> &mdash; put them in the evening live broadcast instead of a taped read.</li>
+          <li><b>+Add</b> &mdash; tack on extra read minutes.</li>
+          <li><b>Shift</b> &mdash; nudge their read earlier/later (+ is reliable; &minus; only if space is open).</li>
+          <li><b>Custom time</b> &mdash; pin the read to an exact ET start. This <b>overrides Shift</b> and everyone else flows around it. The &times; unpins.</li>
+        </ul>
+        <p class="g-note">By default reads auto-place at the earliest open slot. A late read almost always means a Custom Time or Shift is set on that person.</p>
+      </div>
+
+      <div class="g-sec">
+        <div class="g-h">6 &middot; Generate</div>
+        <p>Nothing re-flows until you generate:</p>
+        <ul>
+          <li><b>Generate</b> (on a day) &mdash; rebuilds just that day.</li>
+          <li><b>Generate Week</b> (top right) &mdash; rebuilds all seven days.</li>
+        </ul>
+        <p>Ops breaks (1:30 &amp; 4:00 PM ET) are placed automatically, reads/shows schedule around them, and gap-fill runs last. Always <b>Generate again after any change</b> to see it applied.</p>
+      </div>
+
+      <div class="g-sec">
+        <div class="g-h">7 &middot; Push &amp; export</div>
+        <ul>
+          <li><b>Push to Calendar</b> (per day) / <b>Push Full Week</b> &mdash; sends events to the team Google Calendar. Pushing one day only refreshes that day.</li>
+          <li><b>Copy / Download TXT / Download ICS</b> &mdash; grab the day or week as text or a calendar file.</li>
+          <li><b>Per-Anchor Schedule</b> &mdash; pick a name to get just that person's reads, LIVE slots, and shows.</li>
+        </ul>
+        <p class="g-note">Push/ICS use the schedule built in your current session, so <b>Generate the week before pushing</b> after a page reload.</p>
+      </div>
+
+      <div class="g-sec">
+        <div class="g-h">8 &middot; Share it out</div>
+        <p>On <b>Schedule View</b>: switch Day/Week, change the timezone (viewers can pick their own), print a one-page grid, or download a calendar for one person. <b>Copy share link</b> gives a no-password, read-only link that always opens the current week.</p>
+      </div>
+
+      <div class="g-sec">
+        <div class="g-h">Quick daily flow</div>
+        <p class="g-flow">Pick week &rarr; Refresh &rarr; set shows/anchor options &rarr; Generate Week &rarr; eyeball it &rarr; tweak &amp; re-Generate &rarr; Push to Calendar &rarr; Copy share link.</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <script>
 function checkAppPassword(){
   const val=document.getElementById('app-pw-input').value;
@@ -638,6 +760,9 @@ function requestProtected(view,btn){
   setTimeout(()=>document.getElementById('pw-input').focus(),100);
 }
 function requestProducer(btn){requestProtected('producer',btn);}
+function openGuide(){const o=document.getElementById('guide-overlay');if(o){o.style.display='flex';o.scrollTop=0;}}
+function closeGuide(){const o=document.getElementById('guide-overlay');if(o)o.style.display='none';}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeGuide();});
 function requestShows(btn){requestProtected('shows',btn);}
 
 function checkPassword(){
