@@ -1705,7 +1705,8 @@ function getShowsForDay(day){
 // ============================================================
 function generateSchedule(){
   const wm=getWeekMonday();if(!wm){toast('Select a week first.');return;}
-  if(!submissions.length){toast('No submissions. Click Refresh first.');return;}
+  const anyShows=DAYS.some(d=>getShowsForDay(d).length>0);
+  if(!submissions.length&&!anyShows){toast('Nothing to generate yet \u2014 add shows (with start/end times), or wait for anchor submissions.');return;}
   window._calEventsByDay={};
   window._anchorByDay={};
   DAYS.forEach(day=>generateDay(day,false));
@@ -1832,7 +1833,7 @@ function showWeekICS(){
 
 function generateDay(day,rebuildTabs=true){
   const wm=getWeekMonday();if(!wm)return;
-  if(!submissions.length&&!offDays.includes(day)){toast('No submissions. Click Refresh first.');return;}
+  if(!submissions.length&&!getShowsForDay(day).length&&!offDays.includes(day)){toast('Nothing to generate for '+day+' yet \u2014 pick a show with a start/end time, or wait for anchor submissions.');return;}
   window._calEventsByDay=window._calEventsByDay||{};
   window._anchorByDay=window._anchorByDay||{};
   window._anchorByDay[day]={};
