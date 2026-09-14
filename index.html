@@ -236,6 +236,9 @@
     .show-lock-btn{align-self:flex-start;margin-top:2px;background:transparent;border:1px dashed var(--border2);border-radius:99px;padding:5px 14px;font-size:11px;font-weight:700;letter-spacing:0.03em;color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;transition:all 0.15s;}
     .show-lock-btn:hover{color:var(--accent);border-color:var(--accent);}
     .show-lock-btn.on{background:rgba(255,159,10,0.14);border:1px solid var(--amber);border-style:solid;color:var(--amber);}
+    .show-pb-btn{align-self:flex-start;margin-top:2px;margin-right:6px;background:transparent;border:1px dashed var(--border2);border-radius:99px;padding:5px 14px;font-size:11px;font-weight:700;letter-spacing:0.03em;color:var(--muted);cursor:pointer;font-family:'Barlow',sans-serif;transition:all 0.15s;}
+    .show-pb-btn:hover{color:var(--accent);border-color:var(--accent);}
+    .show-pb-btn.on{background:rgba(200,240,0,0.14);border:1px solid var(--accent);border-style:solid;color:var(--accent);}
     .show-lock-note{font-size:10px;font-weight:700;color:var(--amber);letter-spacing:0.04em;}
     .glance-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
     .glance-legend{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
@@ -1262,6 +1265,7 @@ function buildDayPanel(day){
     const et=selected?(ws.endTime||''):'';
     const safeName=s.name.replace(/\s/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
     const tech=s.techCheck??30, ops=s.opsPrep??30;
+    const pb=!!ws.playback;
     return `<div class="show-week-row">
       <span class="show-week-name">${s.name} <span style="font-size:10px;color:var(--muted);text-transform:none;letter-spacing:0;">tech ${tech}m &middot; ops ${ops}m</span></span>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;">
@@ -1285,6 +1289,7 @@ function buildDayPanel(day){
         ${roster.length?roster.map(n=>{const on=(ws.anchors||[]).includes(n);return `<button class="show-anchor-chip ${on?'active':''}" onclick="toggleShowAnchor('${s.name}','${day}','${n}',this)">${n}</button>`;}).join(''):'<span style="font-size:11px;color:var(--muted);">No roster anchors</span>'}
         <input type="text" id="shg-${safeName}-${day}" value="${(ws.guests||[]).join(', ')}" placeholder="Guests (comma separated)" class="show-guest-input" onblur="setShowGuests('${s.name}','${day}',this.value)" />
       </div>
+      <button class="show-pb-btn ${pb?'on':''}" onclick="toggleShowPlayback('${s.name}','${day}')">${pb?('\u25B6 Playback \u00B7 pre-taped, no prep'):('\u23FA Live \u00B7 tap for playback (no prep)')}</button>
       <button class="show-lock-btn ${lockedHere?'on':''}" onclick="toggleShowLock('${s.name}','${day}')">${lockedHere?('\uD83D\uDD12 Recurring every '+day+' \u00B7 tap to unlock'):('\uD83D\uDD13 Not recurring \u00B7 tap to lock to every '+day)}</button>`
         :(otherLockDays.length?`<span class="show-lock-note">\uD83D\uDD12 Recurs ${otherLockDays.join(', ')}</span>`:'')}
     </div>`;
@@ -1492,6 +1497,16 @@ function applyLockedShows(){
   if(changed)saveWeekShows();
 }
 
+// Mark a show pre-taped for a day: it plays back with no ops-prep / tech-check lead-in.
+function toggleShowPlayback(showName,day){
+  if(!weekShows[showName])weekShows[showName]={};
+  if(!weekShows[showName][day])weekShows[showName][day]={startTime:'',endTime:'',anchors:[],guests:[]};
+  weekShows[showName][day].playback=!weekShows[showName][day].playback;
+  saveWeekShows();
+  const panel=document.getElementById('panel-'+day);
+  if(panel&&panel.classList.contains('active'))panel.innerHTML=buildDayPanel(day);
+}
+
 function toggleShowLock(showName,day){
   const s=showsCatalog.find(x=>x.name===showName);if(!s)return;
   if(!s.locks)s.locks={};
@@ -1695,7 +1710,8 @@ function getShowsForDay(day){
     const [eh,em]=ws.endTime.split(':').map(Number);
     const startMins=sh*60+sm, endMins=eh*60+em;
     if(isNaN(startMins)||isNaN(endMins)||endMins<=startMins)return;
-    result.push({name:s.name,startMins,endMins,techCheck:s.techCheck??30,opsPrep:s.opsPrep??30,anchors:ws.anchors||[],guests:ws.guests||[]});
+    const pb=!!ws.playback;
+    result.push({name:s.name,startMins,endMins,techCheck:pb?0:(s.techCheck??30),opsPrep:pb?0:(s.opsPrep??30),anchors:ws.anchors||[],guests:ws.guests||[],playback:pb});
   });
   return result.sort((a,b)=>a.startMins-b.startMins);
 }
@@ -1984,7 +2000,7 @@ function generateDay(day,rebuildTabs=true){
     if(show.anchors&&show.anchors.length)people.push('Anchors: '+show.anchors.join(', '));
     if(show.guests&&show.guests.length)people.push('Guests: '+show.guests.join(', '));
     const peopleStr=people.length?' \u2014 '+people.join(' | '):'';
-    const showLabel='[SHOW] '+show.name+': '+fmt(show.startMins)+' - '+fmt(show.endMins)+' ET ('+fmtPT(show.startMins)+' - '+fmtPT(show.endMins)+' PT) [LOCKED]'+peopleStr;
+    const showLabel='[SHOW] '+show.name+': '+fmt(show.startMins)+' - '+fmt(show.endMins)+' ET ('+fmtPT(show.startMins)+' - '+fmtPT(show.endMins)+' PT) '+(show.playback?'[PLAYBACK] ':'')+'[LOCKED]'+peopleStr;
     dayEvents.push({type:'show',startMins:show.startMins,endMins:show.endMins,label:showLabel});
     calEvents.push({title:show.name,start:toISO(show.startMins),end:toISO(show.endMins),description:('NewsForce Show'+(people.length?' \u2014 '+people.join(' | '):'')),color:'peacock'});
     // Put this show on each assigned anchor's personal schedule
@@ -2150,7 +2166,7 @@ function glanceLineInfo(line){
   let startMin=toMin(times[0]);
   let endMin=times.length>1?toMin(times[times.length-1]):startMin+30;
   let label,cls='other',owner=null;
-  if(line.startsWith('[SHOW]')){ const nm=line.replace('[SHOW]','').split(':')[0].trim(); label='[SHOW] '+nm; cls='show'; owner=nm; const a=line.match(/Anchors:\s*([^|]+?)(?:\s*\||\s*$)/); if(a)label+=' \u00B7 '+a[1].trim(); }
+  if(line.startsWith('[SHOW]')){ const nm=line.replace('[SHOW]','').split(':')[0].trim(); label='[SHOW] '+nm; cls='show'; owner=nm; if(/\[PLAYBACK\]/i.test(line))label+=' \u00B7 Playback'; const a=line.match(/Anchors:\s*([^|]+?)(?:\s*\||\s*$)/); if(a)label+=' \u00B7 '+a[1].trim(); }
   else if(/^Ops Break/i.test(line)){ label='Steady Streams Break'; cls='break'; }
   else if(/Daily SOT/i.test(line)){ label='Ops Prep / SOT Check'; cls='prep'; }
   else if(/^Playback/i.test(line)){ label='Playback'; cls='play'; endMin=startMin+15; }
