@@ -1265,7 +1265,7 @@ function buildDayPanel(day){
     const et=selected?(ws.endTime||''):'';
     const safeName=s.name.replace(/\s/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
     const tech=s.techCheck??30, ops=s.opsPrep??30;
-    const pb=!!ws.playback;
+    const pb=!!s.playback;
     return `<div class="show-week-row">
       <span class="show-week-name">${s.name} <span style="font-size:10px;color:var(--muted);text-transform:none;letter-spacing:0;">tech ${tech}m &middot; ops ${ops}m</span></span>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;">
@@ -1289,7 +1289,7 @@ function buildDayPanel(day){
         ${roster.length?roster.map(n=>{const on=(ws.anchors||[]).includes(n);return `<button class="show-anchor-chip ${on?'active':''}" onclick="toggleShowAnchor('${s.name}','${day}','${n}',this)">${n}</button>`;}).join(''):'<span style="font-size:11px;color:var(--muted);">No roster anchors</span>'}
         <input type="text" id="shg-${safeName}-${day}" value="${(ws.guests||[]).join(', ')}" placeholder="Guests (comma separated)" class="show-guest-input" onblur="setShowGuests('${s.name}','${day}',this.value)" />
       </div>
-      <button class="show-pb-btn ${pb?'on':''}" onclick="toggleShowPlayback('${s.name}','${day}')">${pb?('\u25B6 Playback \u00B7 pre-taped, no prep'):('\u23FA Live \u00B7 tap for playback (no prep)')}</button>
+      <button class="show-pb-btn ${pb?'on':''}" onclick="toggleShowPlayback('${s.name}','${day}')">${pb?'\u25B6 Playback':'Playback'}</button>
       <button class="show-lock-btn ${lockedHere?'on':''}" onclick="toggleShowLock('${s.name}','${day}')">${lockedHere?('\uD83D\uDD12 Recurring every '+day+' \u00B7 tap to unlock'):('\uD83D\uDD13 Not recurring \u00B7 tap to lock to every '+day)}</button>`
         :(otherLockDays.length?`<span class="show-lock-note">\uD83D\uDD12 Recurs ${otherLockDays.join(', ')}</span>`:'')}
     </div>`;
@@ -1497,12 +1497,12 @@ function applyLockedShows(){
   if(changed)saveWeekShows();
 }
 
-// Mark a show pre-taped for a day: it plays back with no ops-prep / tech-check lead-in.
+// Mark a show pre-taped: it plays back with no ops-prep / tech-check lead-in.
+// Stored on the show itself (like tech/ops), so it persists every week until turned off.
 function toggleShowPlayback(showName,day){
-  if(!weekShows[showName])weekShows[showName]={};
-  if(!weekShows[showName][day])weekShows[showName][day]={startTime:'',endTime:'',anchors:[],guests:[]};
-  weekShows[showName][day].playback=!weekShows[showName][day].playback;
-  saveWeekShows();
+  const s=showsCatalog.find(x=>x.name===showName);if(!s)return;
+  s.playback=!s.playback;
+  saveShows();
   const panel=document.getElementById('panel-'+day);
   if(panel&&panel.classList.contains('active'))panel.innerHTML=buildDayPanel(day);
 }
@@ -1710,7 +1710,7 @@ function getShowsForDay(day){
     const [eh,em]=ws.endTime.split(':').map(Number);
     const startMins=sh*60+sm, endMins=eh*60+em;
     if(isNaN(startMins)||isNaN(endMins)||endMins<=startMins)return;
-    const pb=!!ws.playback;
+    const pb=!!s.playback;
     result.push({name:s.name,startMins,endMins,techCheck:pb?0:(s.techCheck??30),opsPrep:pb?0:(s.opsPrep??30),anchors:ws.anchors||[],guests:ws.guests||[],playback:pb});
   });
   return result.sort((a,b)=>a.startMins-b.startMins);
