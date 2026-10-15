@@ -2792,6 +2792,29 @@ function hostWeekKey(m){return 'hosts-'+m;}
 let hostRoster=[], hostWeekSubs={}, hostFormDays={}, hostEditDays={}, _hostFormWeek='', _hostsMode='week', _hostsDayIdx=null, _hostEditOpen=null, _hostEditName='', _hostEditTz='ET';
 function hjesc(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
 function hhmm12(hm){ if(!hm)return ''; const p=hm.split(':'),h=+p[0],m=+p[1]; if(isNaN(h))return ''; const ap=h>=12?'PM':'AM',h12=h>12?h-12:(h===0?12:h); return h12+':'+String(isNaN(m)?0:m).padStart(2,'0')+' '+ap; }
+// Best-guess the viewer's timezone bucket from their device zone (host can still override).
+function detectHostTz(){
+  let zone=''; try{ zone=Intl.DateTimeFormat().resolvedOptions().timeZone||''; }catch(e){}
+  const map={
+    'America/New_York':'ET','America/Detroit':'ET','America/Toronto':'ET','America/Indiana/Indianapolis':'ET','America/Nassau':'ET','America/Montreal':'ET',
+    'America/Chicago':'CT','America/Winnipeg':'CT','America/Mexico_City':'CT',
+    'America/Denver':'MT','America/Edmonton':'MT','America/Phoenix':'MT','America/Boise':'MT',
+    'America/Los_Angeles':'PT','America/Vancouver':'PT','America/Tijuana':'PT',
+    'Europe/London':'GMT','Europe/Dublin':'GMT','Europe/Lisbon':'GMT',
+    'Europe/Paris':'CET','Europe/Berlin':'CET','Europe/Madrid':'CET','Europe/Rome':'CET','Europe/Brussels':'CET','Europe/Amsterdam':'CET','Europe/Warsaw':'CET','Europe/Zurich':'CET','Europe/Vienna':'CET','Europe/Stockholm':'CET','Europe/Prague':'CET','Europe/Oslo':'CET','Europe/Copenhagen':'CET',
+    'Asia/Kolkata':'IST','Asia/Calcutta':'IST',
+    'Australia/Sydney':'AEST','Australia/Melbourne':'AEST','Australia/Brisbane':'AEST','Australia/Canberra':'AEST'
+  };
+  if(map[zone])return map[zone];
+  // Fallback: nearest bucket by current UTC offset.
+  try{
+    const now=new Date(), devMs=-(now.getTimezoneOffset())*60000;
+    const buckets=[['ET','America/New_York'],['CT','America/Chicago'],['MT','America/Denver'],['PT','America/Los_Angeles'],['GMT','Europe/London'],['CET','Europe/Paris'],['IST','Asia/Kolkata'],['AEST','Australia/Sydney']];
+    let best='ET',bestDiff=Infinity;
+    buckets.forEach(b=>{ const d=Math.abs(tzOffsetMs(b[1],now)-devMs); if(d<bestDiff){bestDiff=d;best=b[0];} });
+    return best;
+  }catch(e){ return 'ET'; }
+}
 
 async function loadHostRoster(){
   try{const r=await api({action:'getWeekData',weekMonday:HOST_ROSTER_KEY}); const wd=(r&&r.success&&r.weekData)||{}; hostRoster=Array.isArray(wd.names)?wd.names:[];}catch(e){hostRoster=[];}
